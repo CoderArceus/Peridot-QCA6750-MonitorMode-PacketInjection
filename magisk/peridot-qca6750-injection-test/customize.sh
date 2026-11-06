@@ -56,6 +56,26 @@ done
 STRYKER_ROOT="/data/local/stryker/release"
 if [ -d "$STRYKER_ROOT" ]; then
   ui_print "- Detected Stryker chroot: installing Qualcomm channel hooks"
+  # Install helper script into chroot so Stryker can invoke it natively
+  cp -f "$MODPATH/system/bin/peridot-wlan-mode" "$STRYKER_ROOT/usr/bin/peridot-wlan-mode" 2>/dev/null || true
+  chmod 0755 "$STRYKER_ROOT/usr/bin/peridot-wlan-mode" 2>/dev/null || true
+  ln -sf peridot-wlan-mode "$STRYKER_ROOT/usr/bin/pwm" 2>/dev/null || true
+  ln -sf peridot-wlan-mode "$STRYKER_ROOT/usr/bin/wlan-mode" 2>/dev/null || true
+
+  cp -f "$MODPATH/system/bin/peridot-wlan-mode" "$STRYKER_ROOT/usr/sbin/peridot-wlan-mode" 2>/dev/null || true
+  chmod 0755 "$STRYKER_ROOT/usr/sbin/peridot-wlan-mode" 2>/dev/null || true
+  ln -sf peridot-wlan-mode "$STRYKER_ROOT/usr/sbin/pwm" 2>/dev/null || true
+  ln -sf peridot-wlan-mode "$STRYKER_ROOT/usr/sbin/wlan-mode" 2>/dev/null || true
+
+  # Grant Stryker Wi-Fi scanning runtime permissions
+  pm grant com.zalexdev.stryker android.permission.ACCESS_FINE_LOCATION 2>/dev/null || true
+  pm grant com.zalexdev.stryker android.permission.ACCESS_COARSE_LOCATION 2>/dev/null || true
+  pm grant com.zalexdev.stryker android.permission.NEARBY_WIFI_DEVICES 2>/dev/null || true
+  appops set com.zalexdev.stryker MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+  appops set com.zalexdev.stryker FINE_LOCATION allow 2>/dev/null || true
+  appops set com.zalexdev.stryker COARSE_LOCATION allow 2>/dev/null || true
+  appops set com.zalexdev.stryker NEARBY_WIFI_DEVICES allow 2>/dev/null || true
+
   # Ensure airmon-ng PATH and monitor start/stop intercept
   if [ -f "$STRYKER_ROOT/usr/sbin/airmon-ng" ]; then
     if ! grep -q "peridot-wlan-mode" "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null; then
