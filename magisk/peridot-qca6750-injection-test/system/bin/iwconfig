@@ -42,3 +42,4 @@ elif [ -x "/data/local/stryker/release/usr/sbin/iwconfig" ]; then
 fi
 
 exit 0
+

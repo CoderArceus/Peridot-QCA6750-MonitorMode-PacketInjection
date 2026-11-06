@@ -43,9 +43,11 @@ if [ "$(id -u)" = "0" ]; then
 	# Hook Stryker chroot if present
 	STRYKER_ROOT="/data/local/stryker/release"
 	if [ -d "$STRYKER_ROOT" ]; then
-		# Ensure airmon-ng PATH
-		if [ -f "$STRYKER_ROOT/usr/sbin/airmon-ng" ] && ! grep -q "export PATH=/usr/local/sbin" "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null; then
-			sed -i '2i export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH' "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null || true
+		# Ensure airmon-ng PATH and monitor start/stop intercept
+		if [ -f "$STRYKER_ROOT/usr/sbin/airmon-ng" ]; then
+			if ! grep -q "peridot-wlan-mode" "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null; then
+				sed -i '2i export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH\nif [ "$1" = "start" ]; then /system/bin/peridot-wlan-mode monitor >/dev/null 2>&1; echo "wlan0 (monitor mode enabled)"; exit 0; fi\nif [ "$1" = "stop" ]; then /system/bin/peridot-wlan-mode managed >/dev/null 2>&1; echo "wlan0 (managed mode enabled)"; exit 0; fi' "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null || true
+			fi
 		fi
 		# Ensure iw wrapper in chroot
 		if [ -f "$STRYKER_ROOT/usr/sbin/iw" ] && ! head -n 1 "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null | grep -q "^#"; then

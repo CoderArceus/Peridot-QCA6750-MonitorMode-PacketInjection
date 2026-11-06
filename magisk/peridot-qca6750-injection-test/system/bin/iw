@@ -1,11 +1,9 @@
 #!/system/bin/sh
-# Universal iw wrapper for Qualcomm monitor mode channel control
-# Automatically intercepts:
-#   iw dev <iface> set channel <ch> [HT20|HT40+|...]
-#   iw <iface> set channel <ch>
-#   iw phy <phy> set channel <ch>
-#   iw dev <iface> set freq <freq>
-# and writes to /sys/class/net/<iface>/monitor_mode_channel
+# Universal iw wrapper for Qualcomm monitor mode channel control & Stryker compatibility
+# Intercepts:
+#   iw dev <iface> set channel <ch> [HT20|...]
+#   iw dev <iface> set type monitor | managed
+#   iw dev / iw <iface> info (synthesizes type monitor when in monitor mode)
 
 IFACE="wlan0"
 CH=""
@@ -23,26 +21,88 @@ for arg in "$@"; do
 	prev="$arg"
 done
 
+# 1. Intercept channel switching
 if [ "$IS_SET_CHAN" -eq 1 ] && [ -n "$CH" ]; then
 	SYSFS="/sys/class/net/$IFACE/monitor_mode_channel"
 	[ ! -e "$SYSFS" ] && SYSFS="/sys/class/net/wlan0/monitor_mode_channel"
 	if [ -e "$SYSFS" ]; then
 		echo "$CH 0" > "$SYSFS" 2>/dev/null
 	fi
-	# Channel successfully switched via Qualcomm sysfs
 	exit 0
 fi
 
-# Chroot local binary check
-if [ -x "/usr/sbin/iw.real" ]; then
-	exec /usr/sbin/iw.real "$@"
+# 2. Intercept mode switching (e.g. from Stryker GUI)
+if [ "$1" = "dev" ] && [ "$3" = "set" ] && [ "$4" = "type" ]; then
+	TARGET_TYPE="$5"
+	PWM_BIN="/data/adb/modules/peridot-qca6750-injection-test/system/bin/peridot-wlan-mode"
+	[ -x "$PWM_BIN" ] || PWM_BIN="/system/bin/peridot-wlan-mode"
+
+	if [ "$TARGET_TYPE" = "monitor" ]; then
+		CUR_MODE=$(cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null)
+		if [ "$CUR_MODE" != "4" ] && [ -x "$PWM_BIN" ]; then
+			"$PWM_BIN" monitor >/dev/null 2>&1 || true
+		fi
+		exit 0
+	elif [ "$TARGET_TYPE" = "managed" ]; then
+		CUR_MODE=$(cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null)
+		if [ "$CUR_MODE" != "0" ] && [ -x "$PWM_BIN" ]; then
+			"$PWM_BIN" managed >/dev/null 2>&1 || true
+		fi
+		exit 0
+	fi
 fi
 
-# Android host delegation:
-if [ -x "/data/local/stryker/release/usr/sbin/iw.real" ]; then
+# Helper to invoke the underlying real iw binary
+get_real_iw_output() {
+	if [ -x "/usr/sbin/iw.real" ]; then
+		/usr/sbin/iw.real "$@" 2>/dev/null
+	elif [ -x "/data/local/stryker/release/usr/sbin/iw.real" ]; then
+		chroot /data/local/stryker/release /usr/sbin/iw.real "$@" 2>/dev/null
+	elif [ -x "/data/local/stryker/release/usr/sbin/iw" ] && ! head -n 1 "/data/local/stryker/release/usr/sbin/iw" 2>/dev/null | grep -q "^#"; then
+		chroot /data/local/stryker/release /usr/sbin/iw "$@" 2>/dev/null
+	elif [ -f /data/data/com.termux/files/usr/lib/libnl-3.so ] && [ -x /data/data/com.termux/files/usr/bin/iw ]; then
+		LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib /data/data/com.termux/files/usr/bin/iw "$@" 2>/dev/null
+	else
+		return 1
+	fi
+}
+
+# 3. Intercept interface inspection (iw dev / iw <iface> info)
+IS_MON=0
+if [ -r /sys/module/qca_cld3_qca6750/parameters/con_mode ] && [ "$(cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null)" = "4" ]; then
+	IS_MON=1
+fi
+
+if [ "$1" = "dev" ] || [ "$2" = "info" ]; then
+	RAW_OUT=$(get_real_iw_output "$@")
+	if [ -n "$RAW_OUT" ]; then
+		if [ "$IS_MON" -eq 1 ]; then
+			echo "$RAW_OUT" | sed 's/type managed/type monitor/g'
+		else
+			echo "$RAW_OUT"
+		fi
+		exit 0
+	elif [ "$IS_MON" -eq 1 ]; then
+		# Fallback synthetic block for Stryker parser when iw binary is not present
+		MAC=$(cat /sys/class/net/wlan0/address 2>/dev/null || echo "00:11:22:33:44:55")
+		cat << EOF
+phy#1
+	Interface wlan0
+		ifindex 30
+		wdev 0x1
+		addr $MAC
+		type monitor
+		txpower 20.00 dBm
+EOF
+		exit 0
+	fi
+fi
+
+# 4. Fallback execution for other queries
+if [ -x "/usr/sbin/iw.real" ]; then
+	exec /usr/sbin/iw.real "$@"
+elif [ -x "/data/local/stryker/release/usr/sbin/iw.real" ]; then
 	exec chroot /data/local/stryker/release /usr/sbin/iw.real "$@"
-elif [ -x "/data/local/stryker/release/usr/sbin/iw" ]; then
-	exec chroot /data/local/stryker/release /usr/sbin/iw "$@"
 elif [ -f /data/data/com.termux/files/usr/lib/libnl-3.so ] && [ -x /data/data/com.termux/files/usr/bin/iw ]; then
 	LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib exec /data/data/com.termux/files/usr/bin/iw "$@"
 fi
