@@ -88,6 +88,23 @@ This document describes the internal architecture, reverse-engineering findings,
 
 ---
 
+### Issue 5: Firmware Panic During Rapid Channel Hopping (`wash` / WPS Scanning)
+
+* **Symptom**:
+  Running `wash -i wlan0` printed `[!] Found packet with bad FCS, skipping...` and then immediately crashed the phone into a black screen / cold power-off.
+* **Root Cause Analysis**:
+  Crash logs (`/data/vendor/wlan_logs/pcss_ssr_tm`) revealed a Qualcomm WLAN firmware Subsystem Restart (SSR) assert.
+  `wash` (built without `libnl-3`) hops channels every 1 second via `SIGALRM` using `ioctl(SIOCSIWFREQ)`.
+  In `wlan_hdd_main.c`, `wlan_hdd_set_mon_chan()` previously called `wma_injection_prepare(vdev_id, freq)` synchronously on every channel frequency change.
+  This teardown and recreation of the STA helper vdev and peer in firmware included `msleep()` delays totaling ~700ms per hop. In addition, `wash` hops across invalid frequencies (such as Channel 14 in non-JP regulatory domains). Rapidly deleting and recreating STA vdevs in firmware during continuous monitor packet reception overwhelmed WMI descriptor queues, triggering the firmware assertion and PMIC watchdog reset.
+* **The Solution**:
+  1. Decoupled helper preparation from channel hopping: removed `wma_injection_prepare()` from `wlan_hdd_set_mon_chan()`. The companion STA injection helper is prepared strictly on-demand during actual transmission (`wma_injection_send()`).
+  2. Added frequency sanity validation (`if (!freq) return -EINVAL;`) in both `wlan_hdd_set_mon_chan()` and `hdd_monitor_wext_siwfreq()`.
+  3. Added automatic channel reset on returning to managed mode (`pwm managed`).
+  - **Result**: Channel hopping with `wash`, `airodump-ng`, or automated scanners runs 100% stable with zero reboots and zero firmware panics.
+
+---
+
 ## 3. Acknowledgments & Credits
 
 - **CoderArceus**: Peridot QCA6750 architecture port, crash elimination, WMI helper implementation, WEXT handlers, CLI wrappers, and stock CRC alignment.

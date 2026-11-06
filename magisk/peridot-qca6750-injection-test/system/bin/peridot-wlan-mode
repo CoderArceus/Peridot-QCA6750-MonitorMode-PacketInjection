@@ -139,6 +139,9 @@ restore_stock() {
 	echo "[*] Restoring stock driver..."
 	wifi_disable
 	ip link set wlan0 down >/dev/null 2>&1 || true
+	if [ -e "/sys/class/net/wlan0/monitor_mode_channel" ]; then
+		printf '1 0\n' > /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null || true
+	fi
 	rmmod "$DRIVER" >/dev/null 2>&1 || true
 	if [ -n "$STOCK_MODULE" ]; then
 		umount "$STOCK_MODULE" 2>/dev/null || true
@@ -218,13 +221,17 @@ case "${1:-}" in
 		;;
 
 	managed|sta)
+		if [ -e "/sys/class/net/wlan0/monitor_mode_channel" ]; then
+			printf '1 0\n' > /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null || true
+		fi
+
 		if [ -n "$BOOT_ID" ] && [ "$(cat "$MARKER" 2>/dev/null)" = "$BOOT_ID" ] && [ -e "/sys/module/$DRIVER" ]; then
 			echo "[*] Injection driver active: fast switching to Managed Mode..."
 			ip link set wlan0 down >/dev/null 2>&1 || true
 			printf '0\n' > "$PARAM" 2>/dev/null || true
 			ip link set wlan0 up >/dev/null 2>&1 || true
 			wifi_enable
-			echo "[+] Normal Android Wi-Fi restored."
+			echo "[+] Normal Android Wi-Fi restored (channel reverted to auto)."
 			exit 0
 		fi
 
@@ -262,7 +269,7 @@ case "${1:-}" in
 		ip link set wlan0 up >/dev/null 2>&1 || true
 		wifi_enable
 		rm -f "$MARKER"
-		echo "[+] Normal Android Wi-Fi restored."
+		echo "[+] Normal Android Wi-Fi restored (channel reverted to auto)."
 		;;
 
 	channel|chan|ch)

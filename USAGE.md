@@ -16,7 +16,7 @@ Once the Magisk / KernelSU / APatch module is installed, the helper command is a
 | :--- | :--- | :--- | :--- |
 | **Check Current Status** | `su -c pwm status` | `su -c peridot-wlan-mode status` | Prints driver, interface, and active mode status |
 | **Enable Monitor & Injection** | `su -c pwm monitor` | `su -c peridot-wlan-mode monitor` | Activates monitor mode (`con_mode=4`) & injection helper |
-| **Switch Back to Normal Wi-Fi** | `su -c pwm managed` | `su -c peridot-wlan-mode managed` | Restores standard Android Wi-Fi service |
+| **Switch Back to Normal Wi-Fi** | `su -c pwm managed` | `su -c peridot-wlan-mode managed` | Restores standard Android Wi-Fi service (auto-resets channel) |
 | **Set Operating Channel** | `su -c pwm channel <1-165>` | `su -c peridot-wlan-mode channel <ch>` | Locks radio & STA helper to specified channel |
 | **Revert Channel to Auto** | `su -c pwm channel auto` | `su -c peridot-wlan-mode channel auto` | Resets channel hopping baseline |
 

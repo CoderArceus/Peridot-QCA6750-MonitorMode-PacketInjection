@@ -300,3 +300,30 @@ Peridot (POCO F6 / SM8635) Android 17 kernel packet injection work.
   - Authored release metadata attributing project author `CoderArceus` and crediting `@Loukious`.
   - Prepared official GitHub Release `v1.0` with flashable module asset `Peridot-QCA6750-MonitorMode-v1.0.zip`.
 
+### Rapid Channel Hopping Fix & Official v1.1 Release
+
+- **Incident Triage (`wash -i wlan0` Crash)**:
+  - User reported running `pwm monitor` followed by `wash -i wlan0` in Termux. After printing `[!] Found packet with bad FCS, skipping...`, the phone crashed and shut down.
+  - Device triage on connected POCO F6 (`89405825`):
+    - Examined `/data/vendor/wlan_logs/pcss_ssr_tm`, confirming a Qualcomm WLAN firmware Subsystem Restart (SSR) assert. On SM8635, an unhandled WLAN SSR during monitor mode triggers an unhandled SoC PMIC watchdog reset and cold power-off.
+    - `wash` in Termux (`reaver-wps-fork-t6x`) was built without `libnl-3` and hops channels every 1 second via `SIGALRM` -> `next_channel()` -> `ioctl(SIOCSIWFREQ)`.
+    - In `wlan_hdd_main.c:10437-10440`, `wlan_hdd_set_mon_chan()` called `wma_injection_prepare(adapter->deflink->vdev_id, freq)` synchronously on *every* channel change.
+    - Each `wma_injection_prepare` destroyed and recreated the companion STA helper vdev/peer in firmware with multiple `msleep(100)` to `msleep(150)` sleeps (~700ms latency per hop). In addition, `wash` sweeps channel 14 (invalid in non-Japan domains where `wlan_reg_legacy_chan_to_freq` returns 0).
+    - Rapidly deleting and creating STA vdevs in firmware during continuous monitor packet reception caused WMI descriptor queue collisions and triggered the firmware assertion.
+- **Kernel & Driver Fix**:
+  - Removed `wma_injection_prepare()` from `wlan_hdd_set_mon_chan()`. The companion STA helper vdev is needed only during active transmission (`wma_injection_send`), not during passive sniffing or channel hopping.
+  - Added frequency sanity check `if (!freq) return -EINVAL;` to both `wlan_hdd_set_mon_chan()` and `hdd_monitor_wext_siwfreq()`.
+  - Recompiled in `peridot-build` Docker container with LLVM/Clang 18 against kernel `6.1.176` and `out176`.
+  - Aligned symbol modversions: **487/487 (100.0%) stock OEM CRC match**.
+  - Refreshed unified diff in `peridot-injection-port.diff`.
+- **Quality-of-Life Update (Auto Channel Reset)**:
+  - Updated `peridot-wlan-mode`: switching to managed mode (`pwm managed`) now automatically writes `1 0` to `/sys/class/net/wlan0/monitor_mode_channel`, resetting the radio baseline back to auto.
+- **Physical Device Over-the-Air Verification**:
+  - Pushed updated module and kernel object to device.
+  - Activated monitor mode via `pwm monitor`.
+  - Tested `wash -i wlan0`: scanned continuously across 2.4 GHz and 5 GHz channels without a single drop or crash. Discovered APs and handled bad FCS frames cleanly.
+  - Ran `pwm managed`: Wi-Fi restored cleanly, channel reset to auto, and network connectivity pinged successfully.
+- **Packaged & Released**:
+  - Module bumped to `v1.1` (`versionCode=11`).
+  - Flashable ZIP generated: `Peridot-QCA6750-MonitorMode-v1.1.zip`.
+

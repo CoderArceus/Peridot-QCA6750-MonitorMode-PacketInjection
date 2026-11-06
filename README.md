@@ -1,11 +1,11 @@
-# Peridot QCA6750 Monitor Mode & Raw Packet Injection (v1.0)
+# Peridot QCA6750 Monitor Mode & Raw Packet Injection (v1.1)
 
 [![Target: POCO F6 (peridot)](https://img.shields.io/badge/Target-POCO%20F6%20%28peridot%29-blue?style=for-the-badge&logo=android)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
 [![Platform: SM8635 / QCA6750](https://img.shields.io/badge/SoC-Snapdragon%208s%20Gen%203-red?style=for-the-badge&logo=qualcomm)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
 [![Kernel: Linux 6.1 Stock GKI](https://img.shields.io/badge/Kernel-Linux%206.1%20%28Stock%20GKI%29-green?style=for-the-badge&logo=linux)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
 [![Author: CoderArceus](https://img.shields.io/badge/Author-CoderArceus-orange?style=for-the-badge)](https://github.com/CoderArceus)
 [![Root: KernelSU / APatch / Magisk](https://img.shields.io/badge/Root-KSU%20%7C%20APatch%20%7C%20Magisk-purple?style=for-the-badge)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
-[![Release: v1.0](https://img.shields.io/badge/Release-v1.0-brightgreen?style=for-the-badge)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest)
+[![Release: v1.1](https://img.shields.io/badge/Release-v1.1-brightgreen?style=for-the-badge)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest)
 
 Native, crash-free 802.11 promiscuous monitor mode and raw packet injection for the **POCO F6 / Redmi Turbo 3 (`peridot`)**, powered by Qualcomm Snapdragon 8s Gen 3 (SM8635) and FastConnect / QCA6750 running **Android 17 / Linux 6.1 (`android14-6.1`)**.
 
@@ -29,11 +29,12 @@ Explore detailed technical documentation, CLI tutorials, and research records:
 
 ## ⚡ Feature Comparison Matrix
 
-| Feature | Stock OEM Driver | Evil_Twin / Generic Monitor Ports | **This Project (`Peridot-QCA6750 v1.0`)** |
+| Feature | Stock OEM Driver | Evil_Twin / Generic Monitor Ports | **This Project (`Peridot-QCA6750 v1.1`)** |
 | :--- | :--- | :--- | :--- |
 | **802.11 Monitor Mode** | ❌ Blocked (`con_mode=4` fails) | ⚠️ Promiscuous RX only | ✅ **Full Promiscuous Sniffing** |
 | **Raw Packet Injection** | ❌ Inbound & outbound dropped | ❌ Fails / Dropped by datapath | ✅ **Native WMI STA Helper Injection** |
 | **Management Frame Injection** | ❌ Blocked | ❌ Not supported | ✅ **Direct WMI Tx (Probe/Deauth/Disassoc)** |
+| **Rapid Channel Hopping** | N/A | ❌ Firmware assert (`pcss_ssr_tm`) | ✅ **100% Stable (`wash`, `airodump`)** |
 | **System Stability** | N/A | ❌ Firmware assert / PMIC watchdog panic | ✅ **100% Crash-Free (Tested under load)** |
 | **Channel `-1` Bug** | ❌ No WEXT ioctls exposed | ❌ Tools fail with "Channel -1" | ✅ **Fixed (`SIOCGIWFREQ` & sysfs sync)** |
 | **Channel Control** | ❌ Locked | ⚠️ Requires manual vendor commands | ✅ **POSIX `iw`, `iwconfig`, and `pwm channel`** |
@@ -48,7 +49,7 @@ Explore detailed technical documentation, CLI tutorials, and research records:
 
 Flashable ZIP packages are distributed exclusively through [**GitHub Releases**](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest) to keep the Git source tree clean:
 
-1. Download [**`Peridot-QCA6750-MonitorMode-v1.0.zip`**](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest).
+1. Download [**`Peridot-QCA6750-MonitorMode-v1.1.zip`**](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest).
 2. Flash the module zip in **KernelSU**, **SuKiSU Ultra (v0.4+)**, **APatch**, or **Magisk (v26+)**.
 3. Reboot your device.
 
@@ -63,7 +64,7 @@ The module installs global shortcuts (**`pwm`**, **`wlan-mode`**, and **`peridot
 | **Set Channel** | `su -c pwm channel 6` | `su -c peridot-wlan-mode channel 6` | Locks monitor radio to Channel 6 (2437 MHz) |
 | **Revert Channel to Auto** | `su -c pwm channel auto` | `su -c peridot-wlan-mode channel auto` | Resets channel hopping baseline |
 | **Injection Diagnostics** | `su -c aireplay-ng --test wlan0` | `su -c aireplay-ng --test wlan0` | Verifies two-way injection against nearby APs |
-| **Restore Normal Wi-Fi** | `su -c pwm managed` | `su -c peridot-wlan-mode managed` | Restores standard Android managed Wi-Fi mode |
+| **Restore Normal Wi-Fi** | `su -c pwm managed` | `su -c peridot-wlan-mode managed` | Restores standard Android Wi-Fi (auto-reverts channel) |
 
 ---
 

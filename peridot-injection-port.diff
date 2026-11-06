@@ -1,83 +1,3 @@
-diff --git a/qcom/opensource/wlan/qca-wifi-host-cmn/dp/inc/cdp_txrx_mon.h b/qcom/opensource/wlan/qca-wifi-host-cmn/dp/inc/cdp_txrx_mon.h
-index fc12e00..3b5f2a6 100644
---- a/qcom/opensource/wlan/qca-wifi-host-cmn/dp/inc/cdp_txrx_mon.h
-+++ b/qcom/opensource/wlan/qca-wifi-host-cmn/dp/inc/cdp_txrx_mon.h
-@@ -46,6 +46,18 @@ static inline QDF_STATUS cdp_reset_monitor_mode(ol_txrx_soc_handle soc,
- 							  smart_monitor);
- }
- 
-+static inline QDF_STATUS
-+cdp_refresh_monitor_mode(ol_txrx_soc_handle soc, uint8_t pdev_id,
-+			 uint8_t vdev_id)
-+{
-+	if (!soc || !soc->ops || !soc->ops->mon_ops ||
-+	    !soc->ops->mon_ops->txrx_refresh_monitor_mode)
-+		return QDF_STATUS_E_INVAL;
-+
-+	return soc->ops->mon_ops->txrx_refresh_monitor_mode(soc, pdev_id,
-+							  vdev_id);
-+}
-+
- /**
-  * cdp_deliver_tx_mgmt() - Deliver mgmt frame for tx capture
-  * @soc: Datapath SOC handle
-diff --git a/qcom/opensource/wlan/qca-wifi-host-cmn/dp/inc/cdp_txrx_ops.h b/qcom/opensource/wlan/qca-wifi-host-cmn/dp/inc/cdp_txrx_ops.h
-index d2de2a2..2b42302 100644
---- a/qcom/opensource/wlan/qca-wifi-host-cmn/dp/inc/cdp_txrx_ops.h
-+++ b/qcom/opensource/wlan/qca-wifi-host-cmn/dp/inc/cdp_txrx_ops.h
-@@ -1018,6 +1018,7 @@ struct cdp_me_ops {
- /**
-  * struct cdp_mon_ops - host mon ops
-  * @txrx_reset_monitor_mode: Handler to reset monitor mode
-+ * @txrx_refresh_monitor_mode: Reapply the active monitor ring filters
-  * @txrx_deliver_tx_mgmt: deliver mgmt tx frame
-  * @txrx_set_advance_monitor_filter: set advanced monitor mode
-  * @config_full_mon_mode: configure full monitor mode
-@@ -1050,6 +1051,9 @@ struct cdp_mon_ops {
- 	QDF_STATUS (*txrx_reset_monitor_mode)
- 		(ol_txrx_soc_handle soc, uint8_t pdev_id, u_int8_t smart_monitor);
- 
-+	QDF_STATUS (*txrx_refresh_monitor_mode)
-+		(ol_txrx_soc_handle soc, uint8_t pdev_id, uint8_t vdev_id);
-+
- 	QDF_STATUS (*txrx_deliver_tx_mgmt)
- 		(struct cdp_soc_t *cdp_soc, uint8_t pdev_id, qdf_nbuf_t nbuf);
- 
-diff --git a/qcom/opensource/wlan/qca-wifi-host-cmn/dp/wifi3.0/monitor/dp_mon.c b/qcom/opensource/wlan/qca-wifi-host-cmn/dp/wifi3.0/monitor/dp_mon.c
-index be7fe95..48d15d5 100644
---- a/qcom/opensource/wlan/qca-wifi-host-cmn/dp/wifi3.0/monitor/dp_mon.c
-+++ b/qcom/opensource/wlan/qca-wifi-host-cmn/dp/wifi3.0/monitor/dp_mon.c
-@@ -579,6 +579,22 @@ fail:
- 	return status;
- }
- 
-+static QDF_STATUS
-+dp_refresh_monitor_mode(struct cdp_soc_t *dp_soc, uint8_t pdev_id,
-+			uint8_t vdev_id)
-+{
-+	struct dp_soc *soc = (struct dp_soc *)dp_soc;
-+	struct dp_pdev *pdev;
-+
-+	pdev = dp_get_pdev_from_soc_pdev_id_wifi3(soc, pdev_id);
-+	if (!pdev || !pdev->monitor_pdev)
-+		return QDF_STATUS_E_INVAL;
-+	if (!pdev->monitor_pdev->monitor_configured)
-+		return dp_vdev_set_monitor_mode(dp_soc, vdev_id, false);
-+
-+	return dp_mon_filter_update(pdev);
-+}
-+
- #ifdef QCA_TX_CAPTURE_SUPPORT
- static QDF_STATUS
- dp_config_tx_capture_mode(struct dp_pdev *pdev)
-@@ -6622,6 +6638,7 @@ void dp_mon_cdp_ops_register(struct dp_soc *soc)
- 	}
- 
- 	ops->cmn_drv_ops->txrx_set_monitor_mode = dp_vdev_set_monitor_mode;
-+	ops->mon_ops->txrx_refresh_monitor_mode = dp_refresh_monitor_mode;
- 	ops->cmn_drv_ops->txrx_get_mon_vdev_from_pdev =
- 				dp_get_mon_vdev_from_pdev_wifi3;
- #ifdef DP_PEER_EXTENDED_API
 diff --git a/qcom/opensource/wlan/qcacld-3.0/Kbuild b/qcom/opensource/wlan/qcacld-3.0/Kbuild
 index df6c6f1..4a6689d 100644
 --- a/qcom/opensource/wlan/qcacld-3.0/Kbuild
@@ -440,7 +360,7 @@ index 93d7705..12763bf 100644
  		return -EINVAL;
  	}
 diff --git a/qcom/opensource/wlan/qcacld-3.0/core/hdd/src/wlan_hdd_main.c b/qcom/opensource/wlan/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
-index 362089a..aa71166 100644
+index 362089a..ed82d53 100644
 --- a/qcom/opensource/wlan/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
 +++ b/qcom/opensource/wlan/qcacld-3.0/core/hdd/src/wlan_hdd_main.c
 @@ -3241,6 +3241,11 @@ static int __hdd_mon_open(struct net_device *dev)
@@ -525,19 +445,17 @@ index 362089a..aa71166 100644
  		else if (QDF_NAN_DISC_MODE == session_type)
  			wlan_hdd_set_nan_if_type(adapter);
  		else
-@@ -10415,6 +10434,11 @@ int wlan_hdd_set_mon_chan(struct hdd_adapter *adapter, qdf_freq_t freq,
- 		adapter->monitor_mode_vdev_up_in_progress = false;
+@@ -10300,6 +10319,9 @@ int wlan_hdd_set_mon_chan(struct hdd_adapter *adapter, qdf_freq_t freq,
+ 		return -EINVAL;
  	}
  
-+#ifdef FEATURE_FRAME_INJECTION_SUPPORT
-+	if (QDF_IS_STATUS_SUCCESS(status))
-+		wma_injection_prepare(adapter->deflink->vdev_id, freq);
-+#endif
++	if (!freq)
++		return -EINVAL;
 +
- 	return qdf_status_to_os_return(status);
- }
- #endif
-@@ -12695,12 +12719,24 @@ static void hdd_adapter_param_update_work(void *arg)
+ 	sta_ctx = WLAN_HDD_GET_STATION_CTX_PTR(adapter->deflink);
+ 	ch_info = &sta_ctx->ch_info;
+ 
+@@ -12695,12 +12717,24 @@ static void hdd_adapter_param_update_work(void *arg)
  
  QDF_STATUS hdd_init_adapter_ops_wq(struct hdd_context *hdd_ctx)
  {
@@ -563,7 +481,7 @@ index 362089a..aa71166 100644
  
  	hdd_exit();
  
-@@ -12711,8 +12747,15 @@ void hdd_deinit_adapter_ops_wq(struct hdd_context *hdd_ctx)
+@@ -12711,8 +12745,15 @@ void hdd_deinit_adapter_ops_wq(struct hdd_context *hdd_ctx)
  {
  	hdd_enter();
  
@@ -579,7 +497,7 @@ index 362089a..aa71166 100644
  
  	hdd_exit();
  }
-@@ -15046,6 +15089,103 @@ void hdd_adapter_reset_station_ctx(struct hdd_adapter *adapter)
+@@ -15046,6 +15087,106 @@ void hdd_adapter_reset_station_ctx(struct hdd_adapter *adapter)
  	}
  }
  
@@ -651,6 +569,9 @@ index 362089a..aa71166 100644
 +	else
 +		freq = wrqu->freq.m;
 +
++	if (!freq)
++		return -EINVAL;
++
 +	ret = wlan_hdd_set_mon_chan(adapter, freq, 0);
 +	if (!ret)
 +		adapter->mon_chan_freq = freq;
@@ -683,7 +604,7 @@ index 362089a..aa71166 100644
  int hdd_start_station_adapter(struct hdd_adapter *adapter)
  {
  	QDF_STATUS status;
-@@ -15092,7 +15232,10 @@ int hdd_start_station_adapter(struct hdd_adapter *adapter)
+@@ -15092,7 +15233,10 @@ int hdd_start_station_adapter(struct hdd_adapter *adapter)
  
  	hdd_adapter_reset_station_ctx(adapter);
  
@@ -695,7 +616,7 @@ index 362089a..aa71166 100644
  	hdd_set_netdev_flags(adapter);
  
  	hdd_register_tx_flow_control(adapter,
-@@ -20045,6 +20188,7 @@ static void hdd_stop_present_mode(struct hdd_context *hdd_ctx,
+@@ -20045,6 +20189,7 @@ static void hdd_stop_present_mode(struct hdd_context *hdd_ctx,
  		hdd_info("Release wakelock for monitor mode!");
  		qdf_wake_lock_release(&hdd_ctx->monitor_mode_wakelock,
  				      WIFI_POWER_EVENT_WAKELOCK_MONITOR_MODE);
