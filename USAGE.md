@@ -18,6 +18,7 @@ Once the Magisk / KernelSU / APatch module is installed, the helper command is a
 | **Enable Monitor & Injection** | `su -c pwm monitor` | `su -c wlan-mode monitor` |
 | **Switch Back to Normal Wi-Fi** | `su -c pwm managed` | `su -c wlan-mode managed` |
 | **Set Operating Channel** | `su -c pwm channel <1-165>` | `su -c wlan-mode channel <1-165>` |
+| **Revert Channel to Auto** | `su -c pwm channel auto` | `su -c wlan-mode channel auto` |
 
 ---
 
@@ -175,3 +176,24 @@ su -c tcpdump -i wlan0 -s 0 -w /sdcard/capture.pcap
 ```sh
 su -c airodump-ng wlan0 --channel 6
 ```
+
+---
+
+## 7. Stryker Integration & Automated Channel Switching
+
+Stryker runs inside a dedicated chroot environment at `/data/local/stryker/release/`. 
+
+### Automated Hooks
+The Magisk module automatically detects and hooks Stryker's chroot environment during module flashing, system boot, and whenever `pwm` is run:
+1. **`iw` & `iwconfig` Wrappers**: Intercepts `iw dev wlan0 set channel <ch>` and `iwconfig wlan0 channel <ch>` calls from Stryker and routes them directly to `/sys/class/net/wlan0/monitor_mode_channel`.
+2. **Dynamic PATH Export**: Patches `/usr/sbin/airmon-ng` to properly locate system binaries (`mountpoint`, `iw`, `iwconfig`, `ethtool`).
+3. **Multi-Environment Symlinks**: Exposes `iw`, `iwconfig`, `airodump-ng`, and `aireplay-ng` across both `/usr/bin/` and `/usr/sbin/`.
+
+### Using with Stryker
+1. Launch Stryker and start Monitor Mode.
+2. Handshake capture and automated tools will automatically tune Qualcomm monitor channel to the target BSSID without requiring manual terminal switching.
+3. If you ever need to manually set or reset channels:
+   - Lock channel: `su -c pwm channel <n>`
+   - Revert to auto: `su -c pwm channel auto`
+
+

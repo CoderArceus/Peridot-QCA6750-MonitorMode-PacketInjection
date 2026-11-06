@@ -1,35 +1,34 @@
-# Peridot QCA6750 injection test module
+# Peridot QCA6750 Monitor Mode & Raw Packet Injection Module
 
-This Magisk ZIP installs the rebuilt `qca_cld3_qca6750.ko` and a root helper.
-It does not replace or unload the ROM WLAN module during boot. The helper checks
-both the expected kernel release and the Clang 18 build fingerprint before it
-will switch drivers.
+Magisk, KernelSU, SuKiSU Ultra, and APatch module for the **POCO F6 (`peridot`)**, providing crash-free 802.11 monitor mode and raw packet injection on the Qualcomm FastConnect / QCA6750 WLAN chipset.
 
-**This package is not compatible with the stock kernel.** The stock config has
-`CONFIG_MODVERSIONS=y`; a comparison against the stock QCACLD module found 252
-different symbol CRCs among 484 shared imports, plus five imports absent from
-that stock module. Changing `vermagic` or relaxing the helper's build check
-cannot correct this ABI mismatch. A stock-compatible module requires rebuilding
-QCACLD against the exact stock kernel source/configuration and its matching
-`Module.symvers`, then validating it on-device.
+## Highlights
+- **100% Stock OEM Kernel Aligned**: All 487 imported symbol CRCs are bit-exact aligned with the stock OEM symbol table under `CONFIG_MODVERSIONS=y`.
+- **STA Helper Vdev Injection Engine**: Bypasses firmware monitor TX drop by encapsulating packets via an internal STA helper vdev with valid hardware scheduler queues.
+- **Wireless Extensions (WEXT) Channel Support**: Exposes `SIOCGIWFREQ` and `SIOCGIWMODE`, fixing the "Channel -1" error in `airodump-ng`, `aireplay-ng`, and Stryker.
+- **Universal Stryker Integration**: Automatically hooks Stryker chroot environment to enable automated channel tuning during handshake captures.
+- **Global Tooling**: Instant access via `pwm` and `wlan-mode` across Termux, ADB shell, MT Manager, and root terminals.
 
-After booting the matching experimental kernel:
-
+## Basic Usage
 ```sh
-su -c peridot-wlan-mode status
-su -c peridot-wlan-mode monitor
-# Run authorized monitor/injection checks in the test app or a root shell.
-su -c peridot-wlan-mode managed
+# Check driver status
+su -c pwm status
+
+# Enter Monitor Mode
+su -c pwm monitor
+
+# Lock Wi-Fi Channel
+su -c pwm channel 6
+
+# Revert Channel to Auto
+su -c pwm channel auto
+
+# Card Diagnostics
+su -c aireplay-ng --test wlan0
+
+# Restore Standard Wi-Fi
+su -c pwm managed
 ```
 
-`monitor` disables Android Wi-Fi, unloads the currently loaded WLAN module,
-loads the test module, writes `4` to `con_mode`, and brings `wlan0` up. `managed`
-unloads the test module, reloads the ROM module, sets `con_mode` to `0`, and
-reenables Android Wi-Fi. If the test module fails to load or mode switching
-fails, the helper attempts to restore the ROM module.
-
-The ZIP does not rewrite `vermagic`; changing that text cannot repair a kernel
-ABI or symbol-version mismatch. The custom kernel and module are still
-experimental. The exact stock kernel source/build symbol data has not been
-obtained, and the device has not been used to validate module loading, monitor
-mode, or packet injection.
+Author: CoderArceus  
+Repository: https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection

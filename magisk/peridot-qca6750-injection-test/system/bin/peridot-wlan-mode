@@ -23,7 +23,7 @@ fi
 MODULE="$MODDIR/$DRIVER.ko"
 MARKER="$MODDIR/injection_driver_loaded_this_boot"
 
-# Auto-heal/sync shortcuts in root and Termux PATHs whenever run as root
+# Auto-heal/sync shortcuts in root, Termux, and Stryker chroot whenever run as root
 if [ "$(id -u)" = "0" ]; then
 	TARGET_EXEC="$MODDIR/system/bin/peridot-wlan-mode"
 	[ -x "$TARGET_EXEC" ] || TARGET_EXEC="$0"
@@ -39,6 +39,45 @@ if [ "$(id -u)" = "0" ]; then
 			fi
 		done
 	done
+
+	# Hook Stryker chroot if present
+	STRYKER_ROOT="/data/local/stryker/release"
+	if [ -d "$STRYKER_ROOT" ]; then
+		# Ensure airmon-ng PATH
+		if [ -f "$STRYKER_ROOT/usr/sbin/airmon-ng" ] && ! grep -q "export PATH=/usr/local/sbin" "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null; then
+			sed -i '2i export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH' "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null || true
+		fi
+		# Ensure iw wrapper in chroot
+		if [ -f "$STRYKER_ROOT/usr/sbin/iw" ] && ! head -n 1 "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null | grep -q "^#"; then
+			cp -f "$STRYKER_ROOT/usr/sbin/iw" "$STRYKER_ROOT/usr/sbin/iw.real" 2>/dev/null || true
+			chmod 0755 "$STRYKER_ROOT/usr/sbin/iw.real" 2>/dev/null || true
+		fi
+		if [ -f "$MODDIR/system/bin/iw" ] && [ -d "$STRYKER_ROOT/usr/sbin" ]; then
+			if [ ! -f "$STRYKER_ROOT/usr/sbin/iw" ] || ! head -n 1 "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null | grep -q "^#"; then
+				cp -f "$MODDIR/system/bin/iw" "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null || true
+				chmod 0755 "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null || true
+				ln -sf /usr/sbin/iw "$STRYKER_ROOT/usr/bin/iw" 2>/dev/null || true
+			fi
+		fi
+		# Ensure iwconfig wrapper in chroot
+		if [ -f "$STRYKER_ROOT/usr/sbin/iwconfig" ] && ! head -n 1 "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null | grep -q "^#"; then
+			cp -f "$STRYKER_ROOT/usr/sbin/iwconfig" "$STRYKER_ROOT/usr/sbin/iwconfig.real" 2>/dev/null || true
+			chmod 0755 "$STRYKER_ROOT/usr/sbin/iwconfig.real" 2>/dev/null || true
+		fi
+		if [ -f "$MODDIR/system/bin/iwconfig" ] && [ -d "$STRYKER_ROOT/usr/sbin" ]; then
+			if [ ! -f "$STRYKER_ROOT/usr/sbin/iwconfig" ] || ! head -n 1 "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null | grep -q "^#"; then
+				cp -f "$MODDIR/system/bin/iwconfig" "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null || true
+				chmod 0755 "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null || true
+				ln -sf /usr/sbin/iwconfig "$STRYKER_ROOT/usr/bin/iwconfig" 2>/dev/null || true
+			fi
+		fi
+		# Ensure aircrack symlinks in /usr/bin
+		for app in airodump-ng aireplay-ng airmon-ng; do
+			if [ -f "$STRYKER_ROOT/usr/sbin/$app" ] && [ ! -e "$STRYKER_ROOT/usr/bin/$app" ]; then
+				ln -sf "/usr/sbin/$app" "$STRYKER_ROOT/usr/bin/$app" 2>/dev/null || true
+			fi
+		done
+	fi
 fi
 
 fail() {
@@ -266,7 +305,14 @@ case "${1:-}" in
 
 	channel|chan|ch)
 		CH="${2:-}"
-		[ -z "$CH" ] && fail "Usage: peridot-wlan-mode channel <channel_number>"
+		[ -z "$CH" ] && fail "Usage: pwm channel <1-165|auto>"
+		if [ "$CH" = "auto" ] || [ "$CH" = "0" ] || [ "$CH" = "reset" ]; then
+			if [ -e "/sys/class/net/wlan0/monitor_mode_channel" ]; then
+				printf '1 0\n' > /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null || true
+			fi
+			echo "[+] Reverted wlan0 monitor channel to auto / default hopping baseline (Channel 1)."
+			exit 0
+		fi
 		if [ -e "/sys/class/net/wlan0/monitor_mode_channel" ]; then
 			printf '%s 0\n' "$CH" > /sys/class/net/wlan0/monitor_mode_channel
 			echo "[+] Locked wlan0 monitor channel to: $CH"
@@ -280,7 +326,7 @@ case "${1:-}" in
 		;;
 
 	*)
-		echo "Usage: peridot-wlan-mode {status|monitor [--force]|managed|channel <1-165>}" >&2
+		echo "Usage: peridot-wlan-mode {status|monitor [--force]|managed|channel <1-165|auto>}" >&2
 		exit 2
 		;;
 esac

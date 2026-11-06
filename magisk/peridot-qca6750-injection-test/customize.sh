@@ -9,6 +9,8 @@ ui_print "- Compatible with KernelSU, SuKiSU Ultra, APatch, and Magisk"
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm_recursive "$MODPATH/system/bin" 0 0 0755 0755
 set_perm "$MODPATH/system/bin/peridot-wlan-mode" 0 0 0755
+[ -f "$MODPATH/system/bin/iw" ] && set_perm "$MODPATH/system/bin/iw" 0 0 0755
+[ -f "$MODPATH/system/bin/iwconfig" ] && set_perm "$MODPATH/system/bin/iwconfig" 0 0 0755
 set_perm "$MODPATH/service.sh" 0 0 0755
 set_perm "$MODPATH/kernel.release" 0 0 0644
 set_perm "$MODPATH/qca_cld3_qca6750.ko" 0 0 0644
@@ -49,6 +51,38 @@ for termux_bin in /data/data/com.termux/files/usr/bin /data/user/0/com.termux/fi
     )
   fi
 done
+
+# 6. Hook Stryker chroot if present
+STRYKER_ROOT="/data/local/stryker/release"
+if [ -d "$STRYKER_ROOT" ]; then
+  ui_print "- Detected Stryker chroot: installing Qualcomm channel hooks"
+  if [ -f "$STRYKER_ROOT/usr/sbin/airmon-ng" ] && ! grep -q "export PATH=/usr/local/sbin" "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null; then
+    sed -i '2i export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH' "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null || true
+  fi
+  if [ -f "$STRYKER_ROOT/usr/sbin/iw" ] && ! head -n 1 "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null | grep -q "^#"; then
+    cp -f "$STRYKER_ROOT/usr/sbin/iw" "$STRYKER_ROOT/usr/sbin/iw.real" 2>/dev/null || true
+    chmod 0755 "$STRYKER_ROOT/usr/sbin/iw.real" 2>/dev/null || true
+  fi
+  if [ -f "$MODPATH/system/bin/iw" ] && [ -d "$STRYKER_ROOT/usr/sbin" ]; then
+    cp -f "$MODPATH/system/bin/iw" "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null || true
+    chmod 0755 "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null || true
+    ln -sf /usr/sbin/iw "$STRYKER_ROOT/usr/bin/iw" 2>/dev/null || true
+  fi
+  if [ -f "$STRYKER_ROOT/usr/sbin/iwconfig" ] && ! head -n 1 "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null | grep -q "^#"; then
+    cp -f "$STRYKER_ROOT/usr/sbin/iwconfig" "$STRYKER_ROOT/usr/sbin/iwconfig.real" 2>/dev/null || true
+    chmod 0755 "$STRYKER_ROOT/usr/sbin/iwconfig.real" 2>/dev/null || true
+  fi
+  if [ -f "$MODPATH/system/bin/iwconfig" ] && [ -d "$STRYKER_ROOT/usr/sbin" ]; then
+    cp -f "$MODPATH/system/bin/iwconfig" "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null || true
+    chmod 0755 "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null || true
+    ln -sf /usr/sbin/iwconfig "$STRYKER_ROOT/usr/bin/iwconfig" 2>/dev/null || true
+  fi
+  for app in airodump-ng aireplay-ng airmon-ng; do
+    if [ -f "$STRYKER_ROOT/usr/sbin/$app" ] && [ ! -e "$STRYKER_ROOT/usr/bin/$app" ]; then
+      ln -sf "/usr/sbin/$app" "$STRYKER_ROOT/usr/bin/$app" 2>/dev/null || true
+    fi
+  done
+fi
 
 ui_print "--------------------------------------------------"
 ui_print " Installation complete!"

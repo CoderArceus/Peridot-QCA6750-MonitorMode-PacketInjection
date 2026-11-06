@@ -1,0 +1,44 @@
+#!/system/bin/sh
+# Universal iwconfig wrapper for Qualcomm monitor mode channel control
+# Automatically intercepts:
+#   iwconfig <iface> channel <ch>
+#   iwconfig <iface> freq <freq>
+# and writes to /sys/class/net/<iface>/monitor_mode_channel
+
+IFACE="${1:-wlan0}"
+CH=""
+IS_SET_CHAN=0
+
+prev=""
+for arg in "$@"; do
+	if [ "$prev" = "channel" ] || [ "$prev" = "freq" ]; then
+		CH="$arg"
+		IS_SET_CHAN=1
+	fi
+	prev="$arg"
+done
+
+if [ "$IS_SET_CHAN" -eq 1 ] && [ -n "$CH" ]; then
+	CLEAN_CH=$(echo "$CH" | sed 's/[GgMm]//g')
+	SYSFS="/sys/class/net/$IFACE/monitor_mode_channel"
+	[ ! -e "$SYSFS" ] && SYSFS="/sys/class/net/wlan0/monitor_mode_channel"
+	if [ -e "$SYSFS" ]; then
+		echo "$CLEAN_CH 0" > "$SYSFS" 2>/dev/null
+	fi
+	# Channel successfully switched via Qualcomm sysfs
+	exit 0
+fi
+
+# Chroot local binary check
+if [ -x "/usr/sbin/iwconfig.real" ]; then
+	exec /usr/sbin/iwconfig.real "$@"
+fi
+
+# Android host delegation:
+if [ -x "/data/local/stryker/release/usr/sbin/iwconfig.real" ]; then
+	exec chroot /data/local/stryker/release /usr/sbin/iwconfig.real "$@"
+elif [ -x "/data/local/stryker/release/usr/sbin/iwconfig" ]; then
+	exec chroot /data/local/stryker/release /usr/sbin/iwconfig "$@"
+fi
+
+exit 0

@@ -9,7 +9,7 @@ Peridot (POCO F6 / SM8635) Android 17 kernel packet injection work.
 
 - Target: Peridot, Android 17, Android common kernel 6.1 (`android14-6.1`).
 - Primary feature: QCACLD packet injection; monitor mode is already present.
-- Supplied boot image: `/Users/aryan/Downloads/extracted_20261104_213034/boot.img`.
+- Supplied boot image: `boot.img` (extracted from stock firmware).
 - Input image SHA-256: `579282ac6a04c3413e2aadabdd9795a0fb893df1eea9adcb602a0ca32c7dc1bd`.
 - The boot image is Android boot header v4, 96 MiB, kernel payload at offset 4096,
   kernel size 35,711,488 bytes, and no ramdisk.

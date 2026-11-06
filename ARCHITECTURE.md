@@ -90,6 +90,7 @@ This document describes the internal architecture, reverse-engineering findings,
 
 ## 3. Acknowledgments & Credits
 
-- **subaru**: Peridot QCA6750 architecture port, crash elimination, WMI helper implementation, WEXT handlers, and stock CRC alignment.
+- **CoderArceus**: Peridot QCA6750 architecture port, crash elimination, WMI helper implementation, WEXT handlers, Stryker auto-channel integration, and stock CRC alignment.
 - **Loukious**: Groundbreaking reference research on WCN7750 STA helper concept.
 - **Qualcomm & Xiaomi**: Original Linux kernel and QCACLD-3.0 codebase.
+

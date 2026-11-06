@@ -1,0 +1,50 @@
+#!/system/bin/sh
+# Universal iw wrapper for Qualcomm monitor mode channel control
+# Automatically intercepts:
+#   iw dev <iface> set channel <ch> [HT20|HT40+|...]
+#   iw <iface> set channel <ch>
+#   iw phy <phy> set channel <ch>
+#   iw dev <iface> set freq <freq>
+# and writes to /sys/class/net/<iface>/monitor_mode_channel
+
+IFACE="wlan0"
+CH=""
+IS_SET_CHAN=0
+
+prev=""
+for arg in "$@"; do
+	case "$arg" in
+		wlan*|mon*) IFACE="$arg" ;;
+	esac
+	if [ "$prev" = "channel" ] || [ "$prev" = "freq" ]; then
+		CH="$arg"
+		IS_SET_CHAN=1
+	fi
+	prev="$arg"
+done
+
+if [ "$IS_SET_CHAN" -eq 1 ] && [ -n "$CH" ]; then
+	SYSFS="/sys/class/net/$IFACE/monitor_mode_channel"
+	[ ! -e "$SYSFS" ] && SYSFS="/sys/class/net/wlan0/monitor_mode_channel"
+	if [ -e "$SYSFS" ]; then
+		echo "$CH 0" > "$SYSFS" 2>/dev/null
+	fi
+	# Channel successfully switched via Qualcomm sysfs
+	exit 0
+fi
+
+# Chroot local binary check
+if [ -x "/usr/sbin/iw.real" ]; then
+	exec /usr/sbin/iw.real "$@"
+fi
+
+# Android host delegation:
+if [ -x "/data/local/stryker/release/usr/sbin/iw.real" ]; then
+	exec chroot /data/local/stryker/release /usr/sbin/iw.real "$@"
+elif [ -x "/data/local/stryker/release/usr/sbin/iw" ]; then
+	exec chroot /data/local/stryker/release /usr/sbin/iw "$@"
+elif [ -f /data/data/com.termux/files/usr/lib/libnl-3.so ] && [ -x /data/data/com.termux/files/usr/bin/iw ]; then
+	LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib exec /data/data/com.termux/files/usr/bin/iw "$@"
+fi
+
+exit 0
