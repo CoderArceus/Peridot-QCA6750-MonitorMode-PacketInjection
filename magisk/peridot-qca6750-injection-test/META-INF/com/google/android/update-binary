@@ -1,0 +1,43 @@
+#!/sbin/sh
+##########################################################################################
+# Universal Root Module Installer
+# Compatible with KernelSU, SuKiSU Ultra, APatch, and Magisk
+##########################################################################################
+
+umask 022
+
+ui_print() { echo "$1"; }
+
+abort_install() {
+  ui_print "****************************************"
+  ui_print "! ERROR: $1"
+  ui_print "****************************************"
+  exit 1
+}
+
+OUTFD=$2
+ZIPFILE=$3
+
+mount /data 2>/dev/null
+
+if [ -f /data/adb/ksu/util_functions.sh ]; then
+  ui_print "- Detected KernelSU / SuKiSU environment"
+  . /data/adb/ksu/util_functions.sh
+elif [ -f /data/adb/ap/util_functions.sh ]; then
+  ui_print "- Detected APatch environment"
+  . /data/adb/ap/util_functions.sh
+elif [ -f /data/adb/magisk/util_functions.sh ]; then
+  ui_print "- Detected Magisk environment"
+  . /data/adb/magisk/util_functions.sh
+else
+  FOUND_UTIL=$(find /data/adb -name "util_functions.sh" 2>/dev/null | head -n 1)
+  if [ -n "$FOUND_UTIL" ]; then
+    ui_print "- Found root utilities at $FOUND_UTIL"
+    . "$FOUND_UTIL"
+  else
+    abort_install "No supported root manager found (KernelSU, SuKiSU, APatch, or Magisk required)!"
+  fi
+fi
+
+install_module
+exit 0

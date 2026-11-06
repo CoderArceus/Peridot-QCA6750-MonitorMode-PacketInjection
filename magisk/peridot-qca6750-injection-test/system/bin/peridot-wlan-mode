@@ -1,0 +1,286 @@
+#!/system/bin/sh
+
+PATH=/data/adb/ksu/bin:/data/adb/magisk:/system/bin:/system/xbin:/vendor/bin:$PATH
+ID=peridot-qca6750-injection-test
+DRIVER=qca_cld3_qca6750
+PARAM=/sys/module/$DRIVER/parameters/con_mode
+BOOT_ID=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
+EXPECTED_RELEASE="6.1.176-g7fee93174ed9"
+EXPECTED_COMPILER="Ubuntu clang version 18.1.3"
+
+# Determine module directory dynamically
+SCRIPT_DIR="$(dirname "$0")"
+if [ -d "/data/adb/modules/$ID" ]; then
+	MODDIR="/data/adb/modules/$ID"
+elif [ -f "$SCRIPT_DIR/$DRIVER.ko" ]; then
+	MODDIR="$SCRIPT_DIR"
+elif [ -f "$SCRIPT_DIR/../../$DRIVER.ko" ]; then
+	MODDIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+else
+	MODDIR="/data/adb/modules/$ID"
+fi
+
+MODULE="$MODDIR/$DRIVER.ko"
+MARKER="$MODDIR/injection_driver_loaded_this_boot"
+
+# Auto-heal/sync shortcuts in root and Termux PATHs whenever run as root
+if [ "$(id -u)" = "0" ]; then
+	TARGET_EXEC="$MODDIR/system/bin/peridot-wlan-mode"
+	[ -x "$TARGET_EXEC" ] || TARGET_EXEC="$0"
+	for alias_name in wlan-mode pwm peridot-wlan-mode; do
+		for tb in /data/data/com.termux/files/usr/bin /data/user/0/com.termux/files/usr/bin; do
+			if [ -d "$tb" ] && [ ! -e "$tb/$alias_name" ]; then
+				ln -sf "$TARGET_EXEC" "$tb/$alias_name" 2>/dev/null || true
+			fi
+		done
+		for rb in /data/adb/ksu/bin /data/adb/magisk /data/adb/ap/bin; do
+			if [ -d "$rb" ] && [ ! -e "$rb/$alias_name" ]; then
+				ln -sf "$TARGET_EXEC" "$rb/$alias_name" 2>/dev/null || true
+			fi
+		done
+	done
+fi
+
+fail() {
+	echo "peridot-wlan-mode: $*" >&2
+	exit 1
+}
+
+# ---------------------------------------------------------
+# STATUS COMMAND (Does not require root access)
+# ---------------------------------------------------------
+if [ "${1:-status}" = "status" ]; then
+	echo "=== Peridot QCA6750 WLAN Injection Status ==="
+	printf 'Kernel release: %s\n' "$(uname -r)"
+	printf 'Kernel info: %s\n' "$(cat /proc/version 2>/dev/null | head -n 1)"
+	
+	printf 'Kernel compatibility: '
+	if [ "$(uname -r)" = "$EXPECTED_RELEASE" ]; then
+		echo "MATCH ($EXPECTED_RELEASE)"
+	else
+		echo "MISMATCH ($(uname -r) != $EXPECTED_RELEASE)"
+	fi
+	
+	printf 'Driver module loaded: '
+	if [ -e "/sys/module/$DRIVER" ]; then
+		echo "yes ($DRIVER)"
+	else
+		echo "no"
+	fi
+	
+	printf 'con_mode (operating mode): '
+	if [ -r "$PARAM" ]; then
+		MODE=$(cat "$PARAM" 2>/dev/null)
+		case "$MODE" in
+			0) echo "0 (STA / Managed Wi-Fi mode)" ;;
+			4) echo "4 (Monitor Mode - RF packet sniffing & injection)" ;;
+			*) echo "$MODE" ;;
+		esac
+	else
+		echo "unavailable (driver not active)"
+	fi
+	
+	printf 'wlan0 interface: '
+	if ip link show wlan0 >/dev/null 2>&1; then
+		ip -brief link show wlan0 2>/dev/null || echo "UP"
+	else
+		echo "down or not created"
+	fi
+	
+	printf 'Injection driver active this boot: '
+	if [ -n "$BOOT_ID" ] && [ "$(cat "$MARKER" 2>/dev/null)" = "$BOOT_ID" ]; then
+		echo "YES"
+	else
+		echo "no"
+	fi
+	echo "============================================="
+	exit 0
+fi
+
+# ---------------------------------------------------------
+# ROOT CHECK (Required for switching modes)
+# ---------------------------------------------------------
+if [ "$(id -u)" != 0 ]; then
+	fail "switching modes requires root privileges (e.g. su -c peridot-wlan-mode $1)"
+fi
+
+wifi_disable() {
+	svc wifi disable >/dev/null 2>&1 || true
+}
+
+wifi_enable() {
+	svc wifi enable >/dev/null 2>&1 || true
+}
+
+# Locate stock driver under vendor_dlkm, vendor, or system
+STOCK_MODULE=""
+for candidate in \
+	/vendor_dlkm/lib/modules/$DRIVER.ko \
+	/vendor_dlkm/lib/modules/*/$DRIVER.ko \
+	/vendor/lib/modules/$DRIVER.ko; do
+	if [ -f "$candidate" ]; then
+		STOCK_MODULE="$candidate"
+		break
+	fi
+done
+
+if [ -z "$STOCK_MODULE" ]; then
+	for root in /vendor_dlkm /vendor /system; do
+		if [ -d "$root" ]; then
+			STOCK_MODULE=$(find "$root" -type f -name "$DRIVER.ko" 2>/dev/null | head -n 1)
+			[ -n "$STOCK_MODULE" ] && break
+		fi
+	done
+fi
+
+restore_stock() {
+	echo "peridot-wlan-mode: Restoring stock WLAN driver..." >&2
+	[ -e "/sys/module/$DRIVER" ] && rmmod "$DRIVER" >/dev/null 2>&1 || true
+	if [ -n "$STOCK_MODULE" ]; then
+		umount "$STOCK_MODULE" 2>/dev/null || true
+		if ! insmod "$STOCK_MODULE"; then
+			echo "peridot-wlan-mode: warning: failed to insmod $STOCK_MODULE" >&2
+		fi
+	fi
+	[ -w "$PARAM" ] && printf '0\n' > "$PARAM" 2>/dev/null || true
+	ip link set wlan0 up >/dev/null 2>&1 || true
+	wifi_enable
+	rm -f "$MARKER"
+	return 0
+}
+
+case "${1:-}" in
+	monitor)
+		FORCE=0
+		[ "${2:-}" = "--force" ] || [ "${2:-}" = "-f" ] && FORCE=1
+
+		if [ ! -r "$MODULE" ]; then
+			fail "injection module not found at: $MODULE"
+		fi
+
+		if [ -z "$STOCK_MODULE" ] || [ ! -r "$STOCK_MODULE" ]; then
+			fail "could not locate stock $DRIVER.ko under /vendor_dlkm or /vendor"
+		fi
+
+		# Kernel safety check
+		if [ "$FORCE" -eq 0 ]; then
+			if [ "$(uname -r)" != "$EXPECTED_RELEASE" ]; then
+				echo "peridot-wlan-mode: WARNING: Current kernel release ($(uname -r)) does not match $EXPECTED_RELEASE." >&2
+				echo "peridot-wlan-mode: To test anyway at your own risk, run: peridot-wlan-mode monitor --force" >&2
+				exit 1
+			fi
+		fi
+
+		if [ -n "$BOOT_ID" ] && [ "$(cat "$MARKER" 2>/dev/null)" = "$BOOT_ID" ] && [ -e "/sys/module/$DRIVER" ]; then
+			echo "[*] Injection driver active: fast switching to Monitor Mode..."
+			wifi_disable
+			ip link set wlan0 down >/dev/null 2>&1 || true
+			printf '4\n' > "$PARAM" 2>/dev/null || true
+			ip link set wlan0 up >/dev/null 2>&1 || true
+			echo "[+] Monitor mode enabled (con_mode=4)."
+			exit 0
+		fi
+
+		echo "[*] Switching to Monitor Mode..."
+		wifi_disable
+		ip link set wlan0 down >/dev/null 2>&1 || true
+
+		if [ -e "/sys/module/$DRIVER" ]; then
+			rmmod "$DRIVER" >/dev/null 2>&1 || true
+			if [ -e "/sys/module/$DRIVER" ]; then
+				wifi_enable
+				fail "could not unload currently running $DRIVER"
+			fi
+		fi
+
+		# Bind-mount custom module over stock module path to satisfy SELinux
+		umount "$STOCK_MODULE" 2>/dev/null || true
+		mount --bind "$MODULE" "$STOCK_MODULE"
+
+		if ! insmod "$STOCK_MODULE"; then
+			umount "$STOCK_MODULE" 2>/dev/null || true
+			restore_stock || true
+			fail "injection module failed to load (check dmesg for vermagic/CRC mismatch). Restored stock driver."
+		fi
+
+		if [ ! -w "$PARAM" ] || ! printf '4\n' > "$PARAM"; then
+			restore_stock || true
+			fail "driver rejected con_mode=4. Restored stock driver."
+		fi
+
+		ip link set wlan0 up >/dev/null 2>&1 || true
+		printf '%s\n' "$BOOT_ID" > "$MARKER"
+		echo "[+] Monitor mode enabled (con_mode=4)."
+		echo "[+] Raw frame injection is active on wlan0."
+		echo "[+] Android Wi-Fi service disabled during monitor mode."
+		echo "[+] To return to normal Wi-Fi, run: peridot-wlan-mode managed"
+		;;
+
+	managed|sta)
+		if [ -n "$BOOT_ID" ] && [ "$(cat "$MARKER" 2>/dev/null)" = "$BOOT_ID" ] && [ -e "/sys/module/$DRIVER" ]; then
+			echo "[*] Injection driver active: fast switching to Managed Mode..."
+			ip link set wlan0 down >/dev/null 2>&1 || true
+			printf '0\n' > "$PARAM" 2>/dev/null || true
+			ip link set wlan0 up >/dev/null 2>&1 || true
+			wifi_enable
+			echo "[+] Normal Android Wi-Fi restored."
+			exit 0
+		fi
+
+		echo "[*] Restoring managed / normal Android Wi-Fi mode..."
+		wifi_disable
+		ip link set wlan0 down >/dev/null 2>&1 || true
+
+		if [ -e "/sys/module/$DRIVER" ]; then
+			rmmod "$DRIVER" >/dev/null 2>&1 || true
+			if [ -e "/sys/module/$DRIVER" ]; then
+				wifi_enable
+				fail "could not unload current $DRIVER module"
+			fi
+		fi
+
+		if [ -n "$STOCK_MODULE" ]; then
+			umount "$STOCK_MODULE" 2>/dev/null || true
+			if ! insmod "$STOCK_MODULE"; then
+				# Fallback: try loading the test module in managed mode
+				mount --bind "$MODULE" "$STOCK_MODULE"
+				if insmod "$STOCK_MODULE"; then
+					printf '0\n' > "$PARAM" 2>/dev/null || true
+					ip link set wlan0 up >/dev/null 2>&1 || true
+					wifi_enable
+				fi
+				fail "failed to reload stock $DRIVER.ko; attempted fallback"
+			fi
+		fi
+
+		if [ -w "$PARAM" ] && ! printf '0\n' > "$PARAM"; then
+			wifi_enable
+			fail "driver rejected con_mode=0"
+		fi
+
+		ip link set wlan0 up >/dev/null 2>&1 || true
+		wifi_enable
+		rm -f "$MARKER"
+		echo "[+] Normal Android Wi-Fi restored."
+		;;
+
+	channel|chan|ch)
+		CH="${2:-}"
+		[ -z "$CH" ] && fail "Usage: peridot-wlan-mode channel <channel_number>"
+		if [ -e "/sys/class/net/wlan0/monitor_mode_channel" ]; then
+			printf '%s 0\n' "$CH" > /sys/class/net/wlan0/monitor_mode_channel
+			echo "[+] Locked wlan0 monitor channel to: $CH"
+		elif command -v iw >/dev/null 2>&1; then
+			iw dev wlan0 set channel "$CH" 2>/dev/null && echo "[+] Set wlan0 channel via iw: $CH" || true
+		elif command -v iwconfig >/dev/null 2>&1; then
+			iwconfig wlan0 channel "$CH" 2>/dev/null && echo "[+] Set wlan0 channel via iwconfig: $CH" || true
+		else
+			fail "neither sysfs nor iw/iwconfig available"
+		fi
+		;;
+
+	*)
+		echo "Usage: peridot-wlan-mode {status|monitor [--force]|managed|channel <1-165>}" >&2
+		exit 2
+		;;
+esac

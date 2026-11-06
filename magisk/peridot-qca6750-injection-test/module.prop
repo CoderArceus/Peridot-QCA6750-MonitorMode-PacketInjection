@@ -1,0 +1,6 @@
+id=peridot-qca6750-injection-test
+name=Peridot QCA6750 Monitor and Injection Test
+version=0.7
+versionCode=7
+author=subaru
+description=Stock-aligned injection driver for POCO F6 (peridot) QCA6750 with STA helper vdev injection and monitor WEXT support (no crash, live packet injection, no channel -1). Compatible with KernelSU, SuKiSU Ultra, APatch, and Magisk.

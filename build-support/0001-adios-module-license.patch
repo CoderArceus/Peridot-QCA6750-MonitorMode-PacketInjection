@@ -1,0 +1,14 @@
+From: Peridot packet injection build
+Subject: [PATCH] block: add missing ADIOS module license metadata
+
+The ADIOS source has an SPDX GPL-2.0 header but omits MODULE_LICENSE(), which
+causes modpost to fail when the boot image's extracted config enables ADIOS as a
+module.
+
+--- a/block/adios.c
++++ b/block/adios.c
+@@ -2058,3 +2058,4 @@
+ MODULE_ALIAS("mq-adios-iosched");
++MODULE_LICENSE("GPL");
+ 
+ #define ADIOS_PROGNAME "Adaptive Deadline I/O Scheduler"
