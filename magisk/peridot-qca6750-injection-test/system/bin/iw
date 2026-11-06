@@ -1,18 +1,15 @@
 #!/bin/sh
-# Universal iw wrapper for Qualcomm monitor mode channel control & Stryker compatibility
+# Universal iw wrapper for Qualcomm monitor mode channel & mode control
 # Intercepts:
 #   iw dev <iface> set channel <ch> [HT20|...]
 #   iw dev <iface> set type monitor | managed
 #   iw dev / iw <iface> info (synthesizes type monitor when in monitor mode)
-#   iw dev <iface> scan (dumps kernel BSS cache for fast, reliable scan results on Android)
 
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 
 IFACE="wlan0"
 CH=""
 IS_SET_CHAN=0
-IS_SCAN=0
-IS_DUMP=0
 
 prev=""
 for arg in "$@"; do
@@ -22,12 +19,6 @@ for arg in "$@"; do
 	if [ "$prev" = "channel" ] || [ "$prev" = "freq" ]; then
 		CH="$arg"
 		IS_SET_CHAN=1
-	fi
-	if [ "$arg" = "scan" ]; then
-		IS_SCAN=1
-	fi
-	if [ "$arg" = "dump" ]; then
-		IS_DUMP=1
 	fi
 	prev="$arg"
 done
@@ -43,12 +34,11 @@ if [ "$IS_SET_CHAN" -eq 1 ] && [ -n "$CH" ]; then
 	exit 0
 fi
 
-# 2. Intercept mode switching (e.g. from Stryker GUI)
+# 2. Intercept mode switching
 if [ "$1" = "dev" ] && [ "$3" = "set" ] && [ "$4" = "type" ]; then
 	TARGET_TYPE="$5"
 	PWM_BIN="/data/adb/modules/peridot-qca6750-injection-test/system/bin/peridot-wlan-mode"
 	[ -x "$PWM_BIN" ] || PWM_BIN="/system/bin/peridot-wlan-mode"
-	[ -x "$PWM_BIN" ] || PWM_BIN="/usr/bin/peridot-wlan-mode"
 
 	if [ "$TARGET_TYPE" = "monitor" ]; then
 		CUR_MODE=$(cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null)
@@ -65,14 +55,10 @@ if [ "$1" = "dev" ] && [ "$3" = "set" ] && [ "$4" = "type" ]; then
 	fi
 fi
 
-# Helper to invoke the underlying real iw binary
+# Helper to invoke underlying real iw binary
 get_real_iw_output() {
-	if [ -x "/usr/sbin/iw.real" ]; then
-		/usr/sbin/iw.real "$@" 2>/dev/null
-	elif [ -x "/data/local/stryker/release/usr/sbin/iw.real" ]; then
-		chroot /data/local/stryker/release /usr/sbin/iw.real "$@" 2>/dev/null
-	elif [ -x "/data/local/stryker/release/usr/sbin/iw" ] && ! head -n 1 "/data/local/stryker/release/usr/sbin/iw" 2>/dev/null | grep -q "^#"; then
-		chroot /data/local/stryker/release /usr/sbin/iw "$@" 2>/dev/null
+	if [ -x "/system/bin/iw" ] && [ "/system/bin/iw" != "$0" ]; then
+		/system/bin/iw "$@" 2>/dev/null
 	elif [ -f /data/data/com.termux/files/usr/lib/libnl-3.so ] && [ -x /data/data/com.termux/files/usr/bin/iw ]; then
 		LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib /data/data/com.termux/files/usr/bin/iw "$@" 2>/dev/null
 	else
@@ -80,40 +66,7 @@ get_real_iw_output() {
 	fi
 }
 
-# 3. Intercept scan requests for Stryker & nl80211 on Android
-# On Android, 'iw dev <iface> scan' fails with -105 (ENOBUFS) because wificond locks scanning.
-# Dumping the kernel BSS cache via 'iw dev <iface> scan dump' returns all scanned networks instantly.
-if [ "$IS_SCAN" -eq 1 ]; then
-	if [ "$IS_DUMP" -eq 1 ]; then
-		if [ -x "/usr/sbin/iw.real" ]; then
-			exec /usr/sbin/iw.real "$@"
-		else
-			get_real_iw_output "$@"
-			exit 0
-		fi
-	fi
-
-	# First try scan dump from the kernel BSS cache
-	DUMP_OUT=$(get_real_iw_output dev "$IFACE" scan dump)
-	if echo "$DUMP_OUT" | grep -q "BSS "; then
-		echo "$DUMP_OUT"
-		exit 0
-	fi
-
-	# If dump is empty, try active scan trigger
-	SCAN_OUT=$(get_real_iw_output "$@")
-	if echo "$SCAN_OUT" | grep -q "BSS "; then
-		echo "$SCAN_OUT"
-		exit 0
-	fi
-
-	# If both were empty, sleep briefly for ongoing scan and dump again
-	sleep 1
-	get_real_iw_output dev "$IFACE" scan dump
-	exit 0
-fi
-
-# 4. Intercept interface inspection (iw dev / iw <iface> info)
+# 3. Intercept interface inspection (iw dev / iw <iface> info)
 IS_MON=0
 if [ -r /sys/module/qca_cld3_qca6750/parameters/con_mode ] && [ "$(cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null)" = "4" ]; then
 	IS_MON=1
@@ -155,11 +108,9 @@ if [ "$2" = "info" ] || [ "$1" = "info" ]; then
 	fi
 fi
 
-# 5. Fallback execution for other queries
-if [ -x "/usr/sbin/iw.real" ]; then
-	exec /usr/sbin/iw.real "$@"
-elif [ -x "/data/local/stryker/release/usr/sbin/iw.real" ]; then
-	exec chroot /data/local/stryker/release /usr/sbin/iw.real "$@"
+# 4. Fallback execution for other queries
+if [ -x "/system/bin/iw" ] && [ "/system/bin/iw" != "$0" ]; then
+	exec /system/bin/iw "$@"
 elif [ -f /data/data/com.termux/files/usr/lib/libnl-3.so ] && [ -x /data/data/com.termux/files/usr/bin/iw ]; then
 	LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib exec /data/data/com.termux/files/usr/bin/iw "$@"
 fi

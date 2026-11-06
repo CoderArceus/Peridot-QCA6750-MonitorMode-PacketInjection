@@ -3,10 +3,10 @@
 *.DS_Store
 **/.DS_Store
 
-# Large archives and third-party trees
+# Distribution archives & large third-party trees
+*.zip
 boot.img
 *.bin
-kernel_xiaomi_sm8635-17.zip
 kernel_xiaomi_sm8635-17/
 loukious-konoha-injection/
 loukious-peridot-wlan/
@@ -15,10 +15,8 @@ incident-logs/
 out/
 peridot-modules/
 
-# Intermediate modules
-qca_cld3_qca6750_v04.ko
-qca_cld3_qca6750_v05.ko
-qca_cld3_qca6750_v06.ko
-qca_cld3_qca6750_v07.ko
-Peridot-QCA6750-Injection-Test-v0.5.zip
+# Intermediate standalone kernel objects
+*.ko
+!magisk/peridot-qca6750-injection-test/qca_cld3_qca6750.ko
+
 

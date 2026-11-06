@@ -25,17 +25,11 @@ the matching CNSS platform module symbol table. Build artifacts are under
 See [BUILD_LOG.md](BUILD_LOG.md) for source selections, build commands, config
 decisions, compatibility findings, and the ADIOS module metadata fix.
 
-## Limitations
+## Verification & Status
 
-The source branch commit differs from the git suffix embedded in the supplied
-boot image, and the build used Ubuntu Clang 18 while the supplied image reports
-Android Clang 21. The configured kernel release was set to
-`6.1.176-g7fee93174ed9` to match the ROM's module vermagic. Module symbol CRC and
-runtime compatibility are not verified on-device.
+With the development of `scripts/align_modversions.py`, 100% of imported symbol CRCs (487/487) were aligned with Xiaomi's stock OEM kernel symbol table under `CONFIG_MODVERSIONS=y`.
 
-The supplied boot image includes an AVB footer. The generated candidate clears
-that stale footer and is unsigned because the ROM signing key is unavailable.
-Packet injection requires installing the rebuilt `wlan.ko` and companion CNSS
-modules as well as using the new kernel. No device boot, module-load, or packet
-injection test has been run. Treat the artifacts as experimental, not as a
-validated drop-in flash image.
+- **Device Verification**: Tested on a physical POCO F6 running Android 17 (Linux `6.1.176-g7fee93174ed9`).
+- **Stability**: Elimination of the DP TCL exception hack in favor of native Qualcomm WMI frame queuing completely resolved radio firmware panics (`pcss_ssr_tm`).
+- **Packet Transmission**: Active frame transmission verified over-the-air with `aireplay-ng --test wlan0` and standard terminal monitoring tools.
+- **Stock Integrity**: Xiaomi OEM proprietary hardware drivers (including SmartPA audio amplifiers) remain completely intact on the untouched factory kernel.

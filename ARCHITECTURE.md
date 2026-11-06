@@ -58,7 +58,7 @@ This document describes the internal architecture, reverse-engineering findings,
 ### Issue 3: Aircrack-ng Channel `-1` Error
 
 * **Symptom**:
-  `aireplay-ng` and Stryker failed with:
+  Wireless audit utilities such as `airodump-ng` and `aireplay-ng` failed with:
   ```text
   Waiting for beacon frame on channel -1
   ```
@@ -90,7 +90,7 @@ This document describes the internal architecture, reverse-engineering findings,
 
 ## 3. Acknowledgments & Credits
 
-- **CoderArceus**: Peridot QCA6750 architecture port, crash elimination, WMI helper implementation, WEXT handlers, Stryker auto-channel integration, and stock CRC alignment.
-- **Loukious**: Groundbreaking reference research on WCN7750 STA helper concept.
+- **CoderArceus**: Peridot QCA6750 architecture port, crash elimination, WMI helper implementation, WEXT handlers, CLI wrappers, and stock CRC alignment.
+- **Loukious**: Groundbreaking reference research on Qualcomm WMI management frame injection and STA helper vdev architecture.
 - **Qualcomm & Xiaomi**: Original Linux kernel and QCACLD-3.0 codebase.
 

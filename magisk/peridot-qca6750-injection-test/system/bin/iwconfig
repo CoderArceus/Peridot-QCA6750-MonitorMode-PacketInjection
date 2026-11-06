@@ -27,20 +27,14 @@ if [ "$IS_SET_CHAN" -eq 1 ] && [ -n "$CH" ]; then
 	if [ -e "$SYSFS" ]; then
 		echo "$CLEAN_CH 0" > "$SYSFS" 2>/dev/null
 	fi
-	# Channel successfully switched via Qualcomm sysfs
 	exit 0
 fi
 
-# Chroot local binary check
-if [ -x "/usr/sbin/iwconfig.real" ]; then
-	exec /usr/sbin/iwconfig.real "$@"
-fi
-
-# Android host delegation:
-if [ -x "/data/local/stryker/release/usr/sbin/iwconfig.real" ]; then
-	exec chroot /data/local/stryker/release /usr/sbin/iwconfig.real "$@"
-elif [ -x "/data/local/stryker/release/usr/sbin/iwconfig" ]; then
-	exec chroot /data/local/stryker/release /usr/sbin/iwconfig "$@"
+# Fallback to real iwconfig if available
+if [ -x "/system/bin/iwconfig" ] && [ "/system/bin/iwconfig" != "$0" ]; then
+	exec /system/bin/iwconfig "$@"
+elif [ -f /data/data/com.termux/files/usr/lib/libwireless.so ] && [ -x /data/data/com.termux/files/usr/bin/iwconfig ]; then
+	exec /data/data/com.termux/files/usr/bin/iwconfig "$@"
 fi
 
 exit 0

@@ -269,7 +269,7 @@ Peridot (POCO F6 / SM8635) Android 17 kernel packet injection work.
     - Handles asynchronous tx completion (`wma_injection_complete`), returning `status=0` (`WMI_MGMT_TX_COMP_TYPE_COMPLETE_OK`).
 - **Channel -1 Fix**:
   - Registered monitor WEXT handlers (`SIOCGIWFREQ`, `SIOCSIWFREQ`, `SIOCGIWMODE`, `SIOCGIWNAME`) in `core/hdd/src/wlan_hdd_main.c`.
-  - Tools such as `iw`, `iwconfig`, `aireplay-ng`, and Stryker now query and set frequency and mode directly without negative-one channel errors.
+  - Tools such as `iw`, `iwconfig`, `airodump-ng`, and `aireplay-ng` now query and set frequency and mode directly without negative-one channel errors.
   - Connected `wlan_hdd_set_mon_chan` to `wma_injection_prepare` to automatically transition the injection helper when changing channels.
 - **Physical Device Over-the-Air Verification**:
   - Rebuilt and aligned 100% symbol CRCs (487/487).
@@ -281,5 +281,22 @@ Peridot (POCO F6 / SM8635) Android 17 kernel packet injection work.
     - Success rate: 60%.
     - Firmware reported `wma_injection_complete: status=0` for all transmitted descriptors.
   - Device stability: Rock solid. No reboots, no audio issues, no system panics.
-  - Magisk/KernelSU flashable zip generated and pushed to `/sdcard/Download/Peridot-QCA6750-Injection-Test-v0.7.zip`.
+
+### Streamlined Terminal Integration & Official v1.0 Release
+
+- **Purged Stryker Dependencies**:
+  - Removed all Stryker chroot hooks, chroot wrappers, and third-party app permissions from `customize.sh`, `service.sh`, and `peridot-wlan-mode`.
+  - Streamlined module architecture to focus purely on native terminal environments (Termux, ADB shell, and root terminals).
+- **Telegram Technical Consensus & Loukious Architecture**:
+  - Community discussions (developer Subaru, Kukumba, Robin) confirmed that generic 6.1 kernel monitor mode ports (such as Evil_Twin) only provide promiscuous reception; outbound packet injection is discarded by the Qualcomm CLD 3.0 datapath.
+  - Loukious's architecture (`vendor_qcom_opensource_wlan` commit `30ef497a813c0422fc4d1d9ac50ce05b551a066a`) bypasses datapath transmission restrictions by routing 802.11 raw management frames directly via WMI management commands (`wma_mgmt_send`) through an internal companion STA helper vdev.
+  - Physical testing verified that deauthentication frame transmission and 4-way handshake capture using `airodump-ng` and `aireplay-ng` in Termux function reliably without requiring external chroot GUI applications.
+- **Enhanced CLI Controls**:
+  - Shortened and standardized CLI commands to `pwm` (*Peridot WLAN Mode*) with aliases `wlan-mode` and `peridot-wlan-mode`.
+  - Added `pwm channel auto` to reset channel hopping baselines back to Channel 1.
+  - Implemented auto-healing symlinks for Termux and root directories (`/data/adb/ksu/bin`, `/data/adb/magisk`, `/data/adb/ap/bin`).
+- **Release Packaging Hygiene**:
+  - Cleaned all binary `.zip` releases out of the Git tree, adding `*.zip` to `.gitignore`.
+  - Authored release metadata attributing project author `CoderArceus` and crediting `@Loukious`.
+  - Prepared official GitHub Release `v1.0` with flashable module asset `Peridot-QCA6750-MonitorMode-v1.0.zip`.
 

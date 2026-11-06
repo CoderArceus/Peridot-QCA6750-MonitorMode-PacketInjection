@@ -23,7 +23,7 @@ fi
 MODULE="$MODDIR/$DRIVER.ko"
 MARKER="$MODDIR/injection_driver_loaded_this_boot"
 
-# Auto-heal/sync shortcuts in root, Termux, and Stryker chroot whenever run as root
+# Auto-heal/sync shortcuts in root and Termux whenever run as root
 if [ "$(id -u)" = "0" ]; then
 	TARGET_EXEC="$MODDIR/system/bin/peridot-wlan-mode"
 	[ -x "$TARGET_EXEC" ] || TARGET_EXEC="$0"
@@ -39,63 +39,6 @@ if [ "$(id -u)" = "0" ]; then
 			fi
 		done
 	done
-
-	# Hook Stryker chroot if present
-	STRYKER_ROOT="/data/local/stryker/release"
-	if [ -d "$STRYKER_ROOT" ]; then
-		# Install helper script into chroot so Stryker can invoke it natively
-		cp -f "$TARGET_EXEC" "$STRYKER_ROOT/usr/bin/peridot-wlan-mode" 2>/dev/null || true
-		chmod 0755 "$STRYKER_ROOT/usr/bin/peridot-wlan-mode" 2>/dev/null || true
-		ln -sf peridot-wlan-mode "$STRYKER_ROOT/usr/bin/pwm" 2>/dev/null || true
-		ln -sf peridot-wlan-mode "$STRYKER_ROOT/usr/bin/wlan-mode" 2>/dev/null || true
-
-		cp -f "$TARGET_EXEC" "$STRYKER_ROOT/usr/sbin/peridot-wlan-mode" 2>/dev/null || true
-		chmod 0755 "$STRYKER_ROOT/usr/sbin/peridot-wlan-mode" 2>/dev/null || true
-		ln -sf peridot-wlan-mode "$STRYKER_ROOT/usr/sbin/pwm" 2>/dev/null || true
-		ln -sf peridot-wlan-mode "$STRYKER_ROOT/usr/sbin/wlan-mode" 2>/dev/null || true
-
-		# Grant Stryker Wi-Fi scanning runtime permissions
-		pm grant com.zalexdev.stryker android.permission.ACCESS_FINE_LOCATION 2>/dev/null || true
-		pm grant com.zalexdev.stryker android.permission.ACCESS_COARSE_LOCATION 2>/dev/null || true
-		pm grant com.zalexdev.stryker android.permission.NEARBY_WIFI_DEVICES 2>/dev/null || true
-		appops set com.zalexdev.stryker MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
-		appops set com.zalexdev.stryker FINE_LOCATION allow 2>/dev/null || true
-		appops set com.zalexdev.stryker COARSE_LOCATION allow 2>/dev/null || true
-		appops set com.zalexdev.stryker NEARBY_WIFI_DEVICES allow 2>/dev/null || true
-
-		# Ensure airmon-ng PATH and monitor start/stop intercept
-		if [ -f "$STRYKER_ROOT/usr/sbin/airmon-ng" ]; then
-			if ! grep -q "peridot-wlan-mode" "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null; then
-				sed -i '2i export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH\nif [ "$1" = "start" ]; then /system/bin/peridot-wlan-mode monitor >/dev/null 2>&1; echo "wlan0 (monitor mode enabled)"; exit 0; fi\nif [ "$1" = "stop" ]; then /system/bin/peridot-wlan-mode managed >/dev/null 2>&1; echo "wlan0 (managed mode enabled)"; exit 0; fi' "$STRYKER_ROOT/usr/sbin/airmon-ng" 2>/dev/null || true
-			fi
-		fi
-		# Ensure iw wrapper in chroot
-		if [ -f "$STRYKER_ROOT/usr/sbin/iw" ] && ! head -n 1 "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null | grep -q "^#"; then
-			cp -f "$STRYKER_ROOT/usr/sbin/iw" "$STRYKER_ROOT/usr/sbin/iw.real" 2>/dev/null || true
-			chmod 0755 "$STRYKER_ROOT/usr/sbin/iw.real" 2>/dev/null || true
-		fi
-		if [ -f "$MODDIR/system/bin/iw" ] && [ -d "$STRYKER_ROOT/usr/sbin" ]; then
-			cp -f "$MODDIR/system/bin/iw" "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null || true
-			chmod 0755 "$STRYKER_ROOT/usr/sbin/iw" 2>/dev/null || true
-			ln -sf /usr/sbin/iw "$STRYKER_ROOT/usr/bin/iw" 2>/dev/null || true
-		fi
-		# Ensure iwconfig wrapper in chroot
-		if [ -f "$STRYKER_ROOT/usr/sbin/iwconfig" ] && ! head -n 1 "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null | grep -q "^#"; then
-			cp -f "$STRYKER_ROOT/usr/sbin/iwconfig" "$STRYKER_ROOT/usr/sbin/iwconfig.real" 2>/dev/null || true
-			chmod 0755 "$STRYKER_ROOT/usr/sbin/iwconfig.real" 2>/dev/null || true
-		fi
-		if [ -f "$MODDIR/system/bin/iwconfig" ] && [ -d "$STRYKER_ROOT/usr/sbin" ]; then
-			cp -f "$MODDIR/system/bin/iwconfig" "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null || true
-			chmod 0755 "$STRYKER_ROOT/usr/sbin/iwconfig" 2>/dev/null || true
-			ln -sf /usr/sbin/iwconfig "$STRYKER_ROOT/usr/bin/iwconfig" 2>/dev/null || true
-		fi
-		# Ensure aircrack symlinks in /usr/bin
-		for app in airodump-ng aireplay-ng airmon-ng; do
-			if [ -f "$STRYKER_ROOT/usr/sbin/$app" ] && [ ! -e "$STRYKER_ROOT/usr/bin/$app" ]; then
-				ln -sf "/usr/sbin/$app" "$STRYKER_ROOT/usr/bin/$app" 2>/dev/null || true
-			fi
-		done
-	fi
 fi
 
 fail() {
@@ -119,87 +62,88 @@ if [ "${1:-status}" = "status" ]; then
 	fi
 	
 	printf 'Driver module loaded: '
-	if [ -e "/sys/module/$DRIVER" ]; then
+	if grep -q "^$DRIVER " /proc/modules 2>/dev/null; then
 		echo "yes ($DRIVER)"
 	else
 		echo "no"
 	fi
-	
+
 	printf 'con_mode (operating mode): '
 	if [ -r "$PARAM" ]; then
 		MODE=$(cat "$PARAM" 2>/dev/null)
 		case "$MODE" in
 			0) echo "0 (STA / Managed Wi-Fi mode)" ;;
-			4) echo "4 (Monitor Mode - RF packet sniffing & injection)" ;;
-			*) echo "$MODE" ;;
+			4) echo "4 (Raw Monitor / Packet Injection mode)" ;;
+			*) echo "$MODE (custom mode)" ;;
 		esac
 	else
-		echo "unavailable (driver not active)"
+		echo "unavailable"
 	fi
-	
+
 	printf 'wlan0 interface: '
 	if ip link show wlan0 >/dev/null 2>&1; then
-		ip -brief link show wlan0 2>/dev/null || echo "UP"
+		ip -brief link show wlan0 2>/dev/null || ip link show wlan0 | head -n 1
 	else
-		echo "down or not created"
+		echo "not found"
 	fi
-	
+
 	printf 'Injection driver active this boot: '
 	if [ -n "$BOOT_ID" ] && [ "$(cat "$MARKER" 2>/dev/null)" = "$BOOT_ID" ]; then
 		echo "YES"
 	else
-		echo "no"
+		echo "no (running stock driver)"
 	fi
 	echo "============================================="
 	exit 0
 fi
 
 # ---------------------------------------------------------
-# ROOT CHECK (Required for switching modes)
+# ROOT PRIVILEGE CHECK
 # ---------------------------------------------------------
-if [ "$(id -u)" != 0 ]; then
-	fail "switching modes requires root privileges (e.g. su -c peridot-wlan-mode $1)"
+if [ "$(id -u)" != "0" ]; then
+	echo "peridot-wlan-mode: Error: Root permissions required." >&2
+	echo "peridot-wlan-mode: Run 'su -c pwm $1' or 'tsu' in Termux." >&2
+	exit 1
 fi
 
-wifi_disable() {
-	svc wifi disable >/dev/null 2>&1 || true
-}
-
-wifi_enable() {
-	svc wifi enable >/dev/null 2>&1 || true
-}
-
-# Locate stock driver under vendor_dlkm, vendor, or system
+# Discover stock driver module location dynamically
 STOCK_MODULE=""
-for candidate in \
+for cand in \
 	/vendor_dlkm/lib/modules/$DRIVER.ko \
 	/vendor_dlkm/lib/modules/*/$DRIVER.ko \
-	/vendor/lib/modules/$DRIVER.ko; do
-	if [ -f "$candidate" ]; then
-		STOCK_MODULE="$candidate"
+	/vendor/lib/modules/$DRIVER.ko \
+	/vendor/lib/modules/*/$DRIVER.ko; do
+	if [ -r "$cand" ]; then
+		STOCK_MODULE="$cand"
 		break
 	fi
 done
 
-if [ -z "$STOCK_MODULE" ]; then
-	for root in /vendor_dlkm /vendor /system; do
-		if [ -d "$root" ]; then
-			STOCK_MODULE=$(find "$root" -type f -name "$DRIVER.ko" 2>/dev/null | head -n 1)
-			[ -n "$STOCK_MODULE" ] && break
-		fi
-	done
-fi
+wifi_disable() {
+	if command -v cmd >/dev/null 2>&1; then
+		cmd wifi set-wifi-enabled disabled >/dev/null 2>&1 || true
+	elif command -v svc >/dev/null 2>&1; then
+		svc wifi disable >/dev/null 2>&1 || true
+	fi
+}
+
+wifi_enable() {
+	if command -v cmd >/dev/null 2>&1; then
+		cmd wifi set-wifi-enabled enabled >/dev/null 2>&1 || true
+	elif command -v svc >/dev/null 2>&1; then
+		svc wifi enable >/dev/null 2>&1 || true
+	fi
+}
 
 restore_stock() {
-	echo "peridot-wlan-mode: Restoring stock WLAN driver..." >&2
-	[ -e "/sys/module/$DRIVER" ] && rmmod "$DRIVER" >/dev/null 2>&1 || true
+	echo "[*] Restoring stock driver..."
+	wifi_disable
+	ip link set wlan0 down >/dev/null 2>&1 || true
+	rmmod "$DRIVER" >/dev/null 2>&1 || true
 	if [ -n "$STOCK_MODULE" ]; then
 		umount "$STOCK_MODULE" 2>/dev/null || true
-		if ! insmod "$STOCK_MODULE"; then
-			echo "peridot-wlan-mode: warning: failed to insmod $STOCK_MODULE" >&2
-		fi
+		insmod "$STOCK_MODULE" >/dev/null 2>&1 || true
 	fi
-	[ -w "$PARAM" ] && printf '0\n' > "$PARAM" 2>/dev/null || true
 	ip link set wlan0 up >/dev/null 2>&1 || true
 	wifi_enable
 	rm -f "$MARKER"
@@ -207,7 +151,7 @@ restore_stock() {
 }
 
 case "${1:-}" in
-	monitor)
+	monitor|mon)
 		FORCE=0
 		[ "${2:-}" = "--force" ] || [ "${2:-}" = "-f" ] && FORCE=1
 
@@ -223,7 +167,7 @@ case "${1:-}" in
 		if [ "$FORCE" -eq 0 ]; then
 			if [ "$(uname -r)" != "$EXPECTED_RELEASE" ]; then
 				echo "peridot-wlan-mode: WARNING: Current kernel release ($(uname -r)) does not match $EXPECTED_RELEASE." >&2
-				echo "peridot-wlan-mode: To test anyway at your own risk, run: peridot-wlan-mode monitor --force" >&2
+				echo "peridot-wlan-mode: To test anyway at your own risk, run: pwm monitor --force" >&2
 				exit 1
 			fi
 		fi
@@ -270,7 +214,7 @@ case "${1:-}" in
 		echo "[+] Monitor mode enabled (con_mode=4)."
 		echo "[+] Raw frame injection is active on wlan0."
 		echo "[+] Android Wi-Fi service disabled during monitor mode."
-		echo "[+] To return to normal Wi-Fi, run: peridot-wlan-mode managed"
+		echo "[+] To return to normal Wi-Fi, run: pwm managed"
 		;;
 
 	managed|sta)
@@ -344,7 +288,8 @@ case "${1:-}" in
 		;;
 
 	*)
-		echo "Usage: peridot-wlan-mode {status|monitor [--force]|managed|channel <1-165|auto>}" >&2
+		echo "Usage: pwm {status|monitor [--force]|managed|channel <1-165|auto>}" >&2
+		echo "Aliases: pwm, wlan-mode, peridot-wlan-mode" >&2
 		exit 2
 		;;
 esac

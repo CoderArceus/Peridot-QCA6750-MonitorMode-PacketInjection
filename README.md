@@ -1,70 +1,75 @@
-# Peridot QCA6750 Monitor Mode & Raw Packet Injection
+# Peridot QCA6750 Monitor Mode & Raw Packet Injection (v1.0)
 
 [![Target: POCO F6 (peridot)](https://img.shields.io/badge/Target-POCO%20F6%20%28peridot%29-blue?style=for-the-badge&logo=android)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
 [![Platform: SM8635 / QCA6750](https://img.shields.io/badge/SoC-Snapdragon%208s%20Gen%203-red?style=for-the-badge&logo=qualcomm)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
 [![Kernel: Linux 6.1 Stock GKI](https://img.shields.io/badge/Kernel-Linux%206.1%20%28Stock%20GKI%29-green?style=for-the-badge&logo=linux)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
 [![Author: CoderArceus](https://img.shields.io/badge/Author-CoderArceus-orange?style=for-the-badge)](https://github.com/CoderArceus)
 [![Root: KernelSU / APatch / Magisk](https://img.shields.io/badge/Root-KSU%20%7C%20APatch%20%7C%20Magisk-purple?style=for-the-badge)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
+[![Release: v1.0](https://img.shields.io/badge/Release-v1.0-brightgreen?style=for-the-badge)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest)
 
-Native, crash-free 802.11 monitor mode and raw packet injection for the **POCO F6 (`peridot`)**, powered by Qualcomm Snapdragon 8s Gen 3 (SM8635) and FastConnect / QCA6750 running **Android 17 / Linux 6.1 (`android14-6.1`)**.
+Native, crash-free 802.11 promiscuous monitor mode and raw packet injection for the **POCO F6 / Redmi Turbo 3 (`peridot`)**, powered by Qualcomm Snapdragon 8s Gen 3 (SM8635) and FastConnect / QCA6750 running **Android 17 / Linux 6.1 (`android14-6.1`)**.
 
-Works directly on the **untouched OEM stock kernel** without custom kernel reflashing, preserving Xiaomi proprietary hardware peripherals (including `aw882xx` / `WL2866D` SmartPA audio amplifiers).
+Works directly on the **untouched OEM stock kernel** without flashing custom kernels, preserving Xiaomi proprietary hardware peripherals (including `aw882xx` / `WL2866D` SmartPA audio amplifiers and sensor calibration).
 
 ---
 
 ## 📑 Documentation Sitemap
 
-Explore detailed documentation and technical deep-dives across the project:
+Explore detailed technical documentation, CLI tutorials, and research records:
 
 | Document | Description | Direct Link |
 | :--- | :--- | :--- |
-| **Usage Guide** | Complete CLI guide for non-Termux terminals, ADB shell, manual sysfs commands, and wireless tools | [📖 Read USAGE.md](USAGE.md) |
-| **Architecture Deep-Dive** | Qualcomm QCACLD-3.0 internals, STA helper vdev design, WEXT registration, and CRC alignment | [🔬 Read ARCHITECTURE.md](ARCHITECTURE.md) |
-| **Build & Research Log** | Step-by-step engineering timeline, crash diagnoses, and symbol resolution logs | [🛠️ Read BUILD_LOG.md](BUILD_LOG.md) |
-| **Port Diff Patch** | Complete unified patch against stock Xiaomi SM8635 WLAN drivers | [📄 View peridot-injection-port.diff](peridot-injection-port.diff) |
+| **Usage Guide** | Complete CLI tutorial for Termux, ADB shell, MT Manager, and manual sysfs operation | [📖 Read USAGE.md](USAGE.md) |
+| **Architecture Deep-Dive** | Qualcomm QCACLD-3.0 internals, Loukious WMI injection engine, STA helper vdev, and CRC alignment | [🔬 Read ARCHITECTURE.md](ARCHITECTURE.md) |
+| **Build & Research Log** | Chronological engineering logs, crash triage (`pcss_ssr_tm`), and symbol resolution | [🛠️ Read BUILD_LOG.md](BUILD_LOG.md) |
+| **Port Diff Patch** | Unified diff patch applied against Xiaomi SM8635 WLAN drivers | [📄 View peridot-injection-port.diff](peridot-injection-port.diff) |
+| **Porting Notes** | Summary of changes and symbols ported from Loukious WCN7750 tree | [📝 Read PORTING_NOTES.md](PORTING_NOTES.md) |
 
 ---
 
 ## ⚡ Feature Comparison Matrix
 
-| Feature | Stock OEM Driver | Traditional Injection Ports | **This Project (`Peridot-QCA6750`)** |
+| Feature | Stock OEM Driver | Evil_Twin / Generic Monitor Ports | **This Project (`Peridot-QCA6750 v1.0`)** |
 | :--- | :--- | :--- | :--- |
-| **802.11 Monitor Mode** | ❌ Blocked (`con_mode=4` fails) | ⚠️ Partial (crashes or hangs) | ✅ **Full Promiscuous Sniffing** |
-| **Raw Packet Injection** | ❌ TX dropped by firmware | ❌ TCL exception crash / kernel panic | ✅ **Native WMI STA Helper Injection** |
-| **Stability / Crashes** | N/A | ❌ Kernel panic on packet burst | ✅ **100% Crash-Free (Tested under load)** |
+| **802.11 Monitor Mode** | ❌ Blocked (`con_mode=4` fails) | ⚠️ Promiscuous RX only | ✅ **Full Promiscuous Sniffing** |
+| **Raw Packet Injection** | ❌ Inbound & outbound dropped | ❌ Fails / Dropped by datapath | ✅ **Native WMI STA Helper Injection** |
+| **Management Frame Injection** | ❌ Blocked | ❌ Not supported | ✅ **Direct WMI Tx (Probe/Deauth/Disassoc)** |
+| **System Stability** | N/A | ❌ Firmware assert / PMIC watchdog panic | ✅ **100% Crash-Free (Tested under load)** |
 | **Channel `-1` Bug** | ❌ No WEXT ioctls exposed | ❌ Tools fail with "Channel -1" | ✅ **Fixed (`SIOCGIWFREQ` & sysfs sync)** |
-| **Stryker Auto-Channel** | ❌ Unsupported | ❌ Channel locked / manual only | ✅ **Seamless Universal Wrappers** |
-| **Kernel Compatibility** | OEM stock only | ❌ Requires custom permissive kernel | ✅ **100% Stock Kernel CRC Alignment** |
-| **Xiaomi Hardware** | Audio & sensors functional | ❌ Breaks SmartPA amplifiers | ✅ **Completely Untouched OEM Peripherals** |
+| **Channel Control** | ❌ Locked | ⚠️ Requires manual vendor commands | ✅ **POSIX `iw`, `iwconfig`, and `pwm channel`** |
+| **Kernel Compatibility** | OEM stock only | ❌ Requires custom kernel / broken audio | ✅ **100% Stock OEM Symbol CRC Alignment** |
+| **Terminal Integration** | None | ❌ Manual script hacking required | ✅ **Universal CLI (`pwm`, `wlan-mode`)** |
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Installation
+### 1. Download & Installation
 
-1. Download the latest release: [**`Peridot-QCA6750-Injection-Test-v0.8.zip`**](Peridot-QCA6750-Injection-Test-v0.8.zip).
-2. Flash the module zip in **KernelSU**, **SuKiSU Ultra**, **APatch**, or **Magisk**.
+Flashable ZIP packages are distributed exclusively through [**GitHub Releases**](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest) to keep the Git source tree clean:
+
+1. Download [**`Peridot-QCA6750-MonitorMode-v1.0.zip`**](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest).
+2. Flash the module zip in **KernelSU**, **SuKiSU Ultra (v0.4+)**, **APatch**, or **Magisk (v26+)**.
 3. Reboot your device.
 
 ### 2. Global CLI Commands Reference
 
-Shortcuts are automatically mapped to **`pwm`** (*Peridot WLAN Mode*) and **`wlan-mode`** across all shells:
+The module installs global shortcuts (**`pwm`**, **`wlan-mode`**, and **`peridot-wlan-mode`**) into root PATHs (`/data/adb/ksu/bin`, `/data/adb/magisk`, `/data/adb/ap/bin`) and Termux (`$PREFIX/bin`):
 
-| Action | Shortcut Command | Full Command | Expected Result |
+| Action | Shortcut Command | Full Command | Description |
 | :--- | :--- | :--- | :--- |
-| **Status Check** | `su -c pwm status` | `su -c wlan-mode status` | Prints driver, interface, and active mode status |
-| **Enable Monitor Mode** | `su -c pwm monitor` | `su -c wlan-mode monitor` | Activates monitor mode & injection helper |
-| **Set Channel** | `su -c pwm channel 6` | `su -c wlan-mode channel 6` | Locks monitor radio to Channel 6 (2437 MHz) |
-| **Revert to Auto** | `su -c pwm channel auto` | `su -c wlan-mode channel auto` | Resets channel hopping baseline |
-| **Diagnostic Test** | `su -c aireplay-ng --test wlan0` | `su -c aireplay-ng --test wlan0` | Verifies two-way injection against nearby APs |
-| **Restore Normal Wi-Fi** | `su -c pwm managed` | `su -c wlan-mode managed` | Restores standard Android Wi-Fi service |
+| **Status Check** | `su -c pwm status` | `su -c peridot-wlan-mode status` | Displays driver, interface state, and active mode |
+| **Enable Monitor Mode** | `su -c pwm monitor` | `su -c peridot-wlan-mode monitor` | Activates monitor mode (`con_mode=4`) & injection helper |
+| **Set Channel** | `su -c pwm channel 6` | `su -c peridot-wlan-mode channel 6` | Locks monitor radio to Channel 6 (2437 MHz) |
+| **Revert Channel to Auto** | `su -c pwm channel auto` | `su -c peridot-wlan-mode channel auto` | Resets channel hopping baseline |
+| **Injection Diagnostics** | `su -c aireplay-ng --test wlan0` | `su -c aireplay-ng --test wlan0` | Verifies two-way injection against nearby APs |
+| **Restore Normal Wi-Fi** | `su -c pwm managed` | `su -c peridot-wlan-mode managed` | Restores standard Android managed Wi-Fi mode |
 
 ---
 
-## 🌐 Supported Environments
+## 🌐 Supported Terminal Environments
 
-The module installs universal shims and path synchronization for all Android execution contexts:
+The module installs universal shims and path synchronization for all Android terminal contexts:
 
 ```
                   ┌─────────────────────────────────────────┐
@@ -72,52 +77,53 @@ The module installs universal shims and path synchronization for all Android exe
                   │   Stock Kernel 6.1 (CONFIG_MODVERSIONS) │
                   └────────────────────┬────────────────────┘
                                        │
-                ┌──────────────────────┴──────────────────────┐
-                ▼                                             ▼
-     ┌──────────────────────┐                      ┌──────────────────────┐
-     │  Android Host / Root │                      │   Stryker Chroot     │
-     │  - Termux (tsu)      │                      │  - airmon-ng         │
-     │  - ADB Shell         │                      │  - airodump-ng       │
-     │  - MT Manager Term   │                      │  - aireplay-ng       │
-     │  - TermOne           │                      │  - Handshake Capture │
-     └──────────┬───────────┘                      └──────────┬───────────┘
-                │                                             │
-                └──────────────┬──────────────────────────────┘
-                               │
-                               ▼
-        ┌─────────────────────────────────────────────┐
-        │  Universal iw / iwconfig Wrappers           │
-        │  - Intercepts set channel / channel         │
-        │  - Writes directly to Qualcomm Sysfs        │
-        │  - Forwards info queries to real binaries   │
-        └──────────────────────┬──────────────────────┘
-                               │
-                               ▼
-        ┌─────────────────────────────────────────────┐
-        │  /sys/class/net/wlan0/monitor_mode_channel  │
-        │  - Instantaneous hardware retuning          │
-        │  - Dynamic STA Helper Vdev realignment      │
-        └─────────────────────────────────────────────┘
+                 ┌─────────────────────┴─────────────────────┐
+                 ▼                                           ▼
+      ┌──────────────────────┐                    ┌──────────────────────┐
+      │  Termux (tsu / root) │                    │ ADB Shell / Root     │
+      │  - airodump-ng       │                    │ - MT Manager Term    │
+      │  - aireplay-ng       │                    │ - TermOne / NP Term  │
+      │  - tcpdump / tshark  │                    │ - Root scripts / CI  │
+      └──────────┬───────────┘                    └──────────┬───────────┘
+                 │                                           │
+                 └─────────────────────┬─────────────────────┘
+                                       │
+                                       ▼
+        ┌─────────────────────────────────────────────────────┐
+        │  Universal iw / iwconfig Wrappers                   │
+        │  - Intercepts "set channel" / "channel"             │
+        │  - Writes directly to Qualcomm Sysfs                │
+        │  - Synthesizes interface type for audit tools       │
+        └──────────────────────────────┬──────────────────────┘
+                                       │
+                                       ▼
+        ┌─────────────────────────────────────────────────────┐
+        │  /sys/class/net/wlan0/monitor_mode_channel          │
+        │  - Instantaneous hardware retuning                  │
+        │  - Dynamic STA Helper Vdev realignment              │
+        └─────────────────────────────────────────────────────┘
 ```
 
-| Environment | How to Execute | Auto-Channel Switching |
+| Environment | Setup & Execution | Channel Switching |
 | :--- | :--- | :--- |
 | **Termux** | Run `tsu`, then `pwm status`, `pwm monitor`, `pwm channel 6` | ✅ Full native support via `$PREFIX/bin/` |
-| **ADB Shell** | Run `adb shell`, then `su -c pwm monitor` | ✅ Full support via `/system/bin/` |
-| **Non-Termux Terminals** | Open MT Manager / TermOne / NP Manager, run `su`, then `pwm` | ✅ Full support via root PATH |
-| **Stryker Suite** | Launch Stryker app, select Monitor Mode & Handshake Capture | ✅ Automated via chroot wrapper shims |
+| **ADB Shell** | Run `adb shell`, then `su -c pwm monitor` | ✅ Full support via root PATH |
+| **Non-Termux Terminals** | Open MT Manager / TermOne, run `su`, then `pwm` | ✅ Full support via `/data/adb/*/bin` |
 
 ---
 
-## 🛠️ Technical Overview
+## 🛠️ Technical Architecture
 
-### 1. The STA Companion Vdev Injection Engine
-In Qualcomm's FastConnect architecture (`qcacld-3.0`), frames sent to a monitor vdev are discarded by hardware because monitor vdevs lack scheduler transmit queues and rate-control tables. 
+### 1. The Loukious WMI Management Frame Injection Architecture
+On Linux 6.1 Android kernels (`android14-6.1`), Qualcomm FastConnect drivers drop outbound raw 802.11 frames passed to monitor interfaces because monitor vdevs lack hardware scheduler queues, rate-control tables, and transmit descriptors.
 
-Instead of routing raw frames through the broken monitor vdev or relying on unstable TCL exception rings, this driver dynamically creates an internal STA helper vdev (`vdev_id 2`) on the same physical frequency. Frames passed through `wlan0` are encapsulated in WMI management commands (`WMI_MGMT_UNIFIED_CMD_SEND`) and pushed directly into the hardware scheduler, achieving reliable transmission without kernel exceptions.
+Based on groundbreaking architecture pioneered by **@Loukious** (`vendor_qcom_opensource_wlan`):
+- Rather than pushing raw skb packets through broken monitor datapath rings (which panics firmware DMA with `pcss_ssr_tm`), the driver dynamically creates an internal Station helper vdev (`vdev_id 2`) on the same physical frequency.
+- Raw 802.11 management frames (probe requests, deauth, disassoc) are extracted from the raw socket and sent directly to the firmware coprocessor via `wmi_mgmt_unified_cmd_send()`.
+- The firmware scheduler treats them as authenticated management frames, returning completion status `0` (`WMI_MGMT_TX_COMP_TYPE_COMPLETE_OK`).
 
 ### 2. Universal Wireless Extensions (WEXT) Channel Support
-Legacy audit tools (`airodump-ng`, `aireplay-ng`, `kismet`) query interface channels via `ioctl(SIOCGIWFREQ)` and `ioctl(SIOCGIWMODE)`. Stock Qualcomm drivers do not expose WEXT handlers for monitor mode, returning `-1` or failure.
+Audit tools (`airodump-ng`, `aireplay-ng`) query interface channels via `ioctl(SIOCGIWFREQ)` and `ioctl(SIOCGIWMODE)`. Stock Qualcomm drivers do not expose WEXT handlers for monitor mode, returning `-1` or failing outright.
 
 This project implements dedicated WEXT ioctl dispatchers inside `wlan_hdd_wext.c`:
 - **`SIOCGIWMODE`**: Accurately reports `IW_MODE_MONITOR`.
@@ -156,6 +162,6 @@ Do not use this software on networks or devices without explicit written permiss
 
 ## 👥 Credits & Acknowledgments
 
-- **[CoderArceus](https://github.com/CoderArceus)**: Project author, Peridot QCA6750 architecture port, crash elimination, WMI helper design, WEXT registration, Stryker auto-channel shims, and stock CRC alignment.
-- **Loukious**: Groundbreaking reference research on the WCN7750 STA helper concept.
+- **[CoderArceus](https://github.com/CoderArceus)**: Project author, Peridot QCA6750 port, crash elimination, WMI helper implementation, WEXT registration, POSIX wrappers, and stock CRC alignment.
+- **[Loukious](https://github.com/Loukious)**: Original design and architecture for Qualcomm WMI management frame injection and STA helper vdev.
 - **Qualcomm & Xiaomi**: Original Linux kernel and QCACLD-3.0 codebase.
