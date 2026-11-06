@@ -1,9 +1,11 @@
-#!/system/bin/sh
+#!/bin/sh
 # Universal iwconfig wrapper for Qualcomm monitor mode channel control
 # Automatically intercepts:
 #   iwconfig <iface> channel <ch>
 #   iwconfig <iface> freq <freq>
 # and writes to /sys/class/net/<iface>/monitor_mode_channel
+
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 
 IFACE="${1:-wlan0}"
 CH=""
@@ -42,4 +44,3 @@ elif [ -x "/data/local/stryker/release/usr/sbin/iwconfig" ]; then
 fi
 
 exit 0
-
