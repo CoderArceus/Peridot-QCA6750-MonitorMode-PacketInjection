@@ -1,6 +1,6 @@
 id=peridot-qca6750-injection-test
 name=Peridot QCA6750 Monitor and Packet Injection
-version=1.1
-versionCode=11
+version=1.2
+versionCode=12
 author=CoderArceus
-description=Stock-aligned monitor mode & packet injection driver for POCO F6 (peridot) QCA6750 with STA helper vdev injection, Loukious WMI mgmt tx, sysfs & iw/iwconfig channel control, and terminal CLI (pwm/wlan-mode). Compatible with KernelSU, SuKiSU, APatch, and Magisk.
+description=Stock-aligned monitor mode & raw management + data packet injection driver for POCO F6 (peridot) QCA6750 with STA helper vdev injection, EAPOL/802.1X support, sysfs & iw/iwconfig channel control, and terminal CLI (pwm/wlan-mode). Compatible with KernelSU, SuKiSU, APatch, and Magisk.

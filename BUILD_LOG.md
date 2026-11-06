@@ -327,3 +327,36 @@ Peridot (POCO F6 / SM8635) Android 17 kernel packet injection work.
   - Module bumped to `v1.1` (`versionCode=11`).
   - Flashable ZIP generated: `Peridot-QCA6750-MonitorMode-v1.1.zip`.
 
+### 802.11 Data Frame (EAPOL / 802.1X) Injection Fix & v1.2 Release
+
+- **Incident Triage (`EAPOL START` Receive Timeout)**:
+  - User reported running Reaver on channel 3: Authentication and Association succeeded, but `Sending EAPOL START request` repeatedly timed out with `[!] WARNING: Receive timeout occurred`.
+  - Kernel dmesg triage on connected device revealed:
+    ```text
+    hdd_monitor_mode_tx_inject: monitor tx: dropping invalid injection frame len 36
+    ```
+  - Auth/Assoc are 802.11 Management frames (Type `0x00`), which passed validation and transmitted over the air. EAPOL START is an 802.11 Data frame (Type `0x02`, len=36), which was rejected by `hdd_injection_frame_is_valid()` in `wlan_hdd_tx_rx.c:605` because it only checked `ieee80211_is_mgmt()`.
+- **Kernel & Driver Fix**:
+  - Updated `hdd_injection_frame_is_valid()` in `core/hdd/src/wlan_hdd_tx_rx.c`:
+    ```c
+    return ieee80211_is_mgmt(hdr->frame_control) ||
+           ieee80211_is_data(hdr->frame_control);
+    ```
+  - Rebuilt module in `peridot-build` Docker container against kernel 6.1.176 with LLVM/Clang 18 and aligned symbol modversions: **487/487 (100.0%) stock CRC match**.
+- **Physical Device Over-the-Air Verification**:
+  - Loaded rebuilt driver on POCO F6.
+  - Re-ran Reaver against AP `1C:18:4A:68:EE:F0`:
+    - `[+] Sending EAPOL START request`
+    - `[+] Received identity request`
+    - `[+] Sending identity response`
+    - `[+] Received M1 message`
+    - `[+] Sending M2 message`
+    - `[+] Received M3 message`
+    - `[+] Sending M4 message`
+    - `[+] Received WSC NACK`
+    - `[+] Sending WSC NACK`
+  - Complete 4-way EAPOL / WPS transaction executed seamlessly with `status=0` confirmed in `wma_injection_complete` for all data frames (`fc=0x0108`, lengths 36, 71, 419, 232, 106).
+- **Packaged & Released**:
+  - Module bumped to `v1.2` (`versionCode=12`).
+  - Flashable ZIP generated: `Peridot-QCA6750-MonitorMode-v1.2.zip`.
+

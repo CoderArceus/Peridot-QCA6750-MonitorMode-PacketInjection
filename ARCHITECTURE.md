@@ -105,6 +105,26 @@ This document describes the internal architecture, reverse-engineering findings,
 
 ---
 
+### Issue 6: 802.11 Data Frame (EAPOL / 802.1X) Drop in Injection Filter
+
+* **Symptom**:
+  Utilities attempting EAPOL handshakes (such as WPS exchanges) successfully authenticated and associated (`Associated with BSSID`), but timed out immediately upon sending `EAPOL START` with `Receive timeout occurred`.
+* **Root Cause Analysis**:
+  Dmesg revealed:
+  ```text
+  hdd_monitor_mode_tx_inject: monitor tx: dropping invalid injection frame len 36
+  ```
+  Authentication and Association are 802.11 Management frames (Type `0x00`), whereas EAPOL is an 802.11 Data frame (Type `0x02`, EtherType `0x888E` in LLC/SNAP). The injection validation function `hdd_injection_frame_is_valid()` in `wlan_hdd_tx_rx.c` strictly enforced `return ieee80211_is_mgmt(hdr->frame_control);`, silently dropping all non-management 802.11 frames before they reached WMI transmission.
+* **The Solution**:
+  - Expanded `hdd_injection_frame_is_valid()` to accept both management and data frame types:
+    ```c
+    return ieee80211_is_mgmt(hdr->frame_control) ||
+           ieee80211_is_data(hdr->frame_control);
+    ```
+  - Over-the-air testing confirmed that Qualcomm QCA6750 target firmware transmits these frames cleanly via the companion STA helper vdev with completion `status=0` (`WMI_MGMT_TX_COMP_TYPE_COMPLETE_OK`), successfully completing full bidirectional EAPOL exchanges (EAPOL Start -> Identity Request/Response -> M1..M4 -> WSC NACK).
+
+---
+
 ## 3. Acknowledgments & Credits
 
 - **CoderArceus**: Peridot QCA6750 architecture port, crash elimination, WMI helper implementation, WEXT handlers, CLI wrappers, and stock CRC alignment.

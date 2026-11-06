@@ -875,7 +875,7 @@ index 58ef133..6c20eff 100644
  	return cdp_reset_monitor_mode(soc, OL_TXRX_PDEV_ID, false);
  }
 diff --git a/qcom/opensource/wlan/qcacld-3.0/core/hdd/src/wlan_hdd_tx_rx.c b/qcom/opensource/wlan/qcacld-3.0/core/hdd/src/wlan_hdd_tx_rx.c
-index daf500f..37f1517 100644
+index daf500f..beda610 100644
 --- a/qcom/opensource/wlan/qcacld-3.0/core/hdd/src/wlan_hdd_tx_rx.c
 +++ b/qcom/opensource/wlan/qcacld-3.0/core/hdd/src/wlan_hdd_tx_rx.c
 @@ -33,12 +33,14 @@
@@ -909,7 +909,7 @@ index daf500f..37f1517 100644
  
  #ifdef TX_MULTIQ_PER_AC
  #if defined(QCA_LL_TX_FLOW_CONTROL_V2) || defined(QCA_LL_PDEV_TX_FLOW_CONTROL)
-@@ -489,6 +493,161 @@ hdd_drop_tx_packet_on_ftm(struct sk_buff *skb)
+@@ -489,6 +493,162 @@ hdd_drop_tx_packet_on_ftm(struct sk_buff *skb)
  }
  #endif
  
@@ -1022,7 +1022,8 @@ index daf500f..37f1517 100644
 +	if (hdr_len < sizeof(struct ieee80211_hdr_3addr) || skb->len < hdr_len)
 +		return false;
 +
-+	return ieee80211_is_mgmt(hdr->frame_control);
++	return ieee80211_is_mgmt(hdr->frame_control) ||
++	       ieee80211_is_data(hdr->frame_control);
 +}
 +
 +static void hdd_monitor_mode_tx_inject(struct hdd_adapter *adapter,
@@ -1071,7 +1072,7 @@ index daf500f..37f1517 100644
  /**
   * __hdd_hard_start_xmit() - Transmit a frame
   * @skb: pointer to OS packet (sk_buff)
-@@ -506,15 +665,24 @@ static void __hdd_hard_start_xmit(struct sk_buff *skb,
+@@ -506,15 +666,24 @@ static void __hdd_hard_start_xmit(struct sk_buff *skb,
  				  struct net_device *dev)
  {
  	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(dev);
