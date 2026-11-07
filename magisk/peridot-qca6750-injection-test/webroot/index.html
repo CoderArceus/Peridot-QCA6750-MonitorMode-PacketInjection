@@ -698,21 +698,32 @@ async function exportLogs() {
 
 async function shareLogs() {
   const report = lastDiagnosticLog || await generateDiagnosticLog();
+  copyToClipboard(report);
+
+  // 1. Invoke native Android share sheet via root Activity Manager intent
+  // This triggers Android system Chooser displaying WhatsApp, Telegram, Gmail, Discord, etc.
+  await ksuExec(`
+OUT="/sdcard/peridot_debug.log"
+TXT="$(head -n 250 "$OUT" 2>/dev/null)"
+[ -z "$TXT" ] && TXT="Izanami QCA6750 Diagnostic Report saved to /sdcard/peridot_debug.log"
+am start -a android.intent.action.SEND -t "text/plain" \
+  --es android.intent.extra.SUBJECT "Izanami QCA6750 Diagnostic Log" \
+  --es android.intent.extra.TEXT "$TXT" 2>&1
+  `);
+
   if (navigator.share) {
     try {
       await navigator.share({
         title: "Izanami QCA6750 Diagnostic Log",
-        text: report
+        text: report.substring(0, 32000)
       });
-      showToast("Share sheet opened!");
+      showToast("Share sheet opened & copied to clipboard!");
       return;
     } catch (e) {
-      // User cancelled share or WebView restriction
+      // Ignored if cancelled or handled by am start
     }
   }
-  // Fallback: Copy to clipboard & toast
-  copyToClipboard(report);
-  showToast("Full log copied to clipboard & saved to /sdcard!");
+  showToast("Share sheet opened & copied to clipboard!");
 }
 
 function copyConsole() {
