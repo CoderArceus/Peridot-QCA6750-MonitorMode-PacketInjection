@@ -408,3 +408,25 @@ Peridot (POCO F6 / SM8635) Android 17 kernel packet injection work.
 - **Packaged & Released**:
   - Module bumped to `v2.1-WebUI` (`versionCode=21`).
   - Flashable ZIP generated: `Izanami-QCA6750-Monitor-WebUI-v2.1.zip`.
+
+### Zygisk-Style Share & Export Log, One-Tap Channel Matrix, and WebUI Hardening (v2.2-WebUI)
+
+- **Incident Triage (`peridot-wlan-mode: Permission denied` & missing executable bit)**:
+  - Tester log analysis (`peridot_debug.log`) revealed:
+    `sh: 0: cannot open /data/adb/modules/peridot-qca6750-injection-test/system/bin/peridot-wlan-mode: Permission denied`
+  - Cause: Module installation previously set default file permissions to `0644` in `customize.sh`, and SELinux contexts or `noexec` mounts prevented direct execution without explicit `sh` wrapper.
+- **WebUI Hardening & Native Execution**:
+  - Replaced direct binary invocation with `sh "$MOD/system/bin/peridot-wlan-mode"`, completely bypassing `noexec` VFS mount restrictions.
+  - Added module directory auto-discovery (`/data/adb/modules/*peridot*`, `*qca6750*`, `*Izanami*`).
+  - Added direct kernel-level fallback in `switchMode()` if the helper script is ever absent or corrupted.
+  - Enforced `chmod -R 0755 "$MOD"` and SELinux `chcon -R u:object_r:system_file:s0 "$MOD"` on every boot (`post-fs-data.sh`, `service.sh`, `customize.sh`).
+- **Zygisk-Style Log Sharing & Export**:
+  - Added `[ 📥 SAVE TO /SDCARD ]`: Dumps full system and driver telemetry to `/sdcard/peridot_debug.log` and `/sdcard/Download/peridot_debug.log`.
+  - Added `[ 📤 SHARE LOGS ]`: Integrated native Android Web Share API (`navigator.share`) to open the system share sheet (Telegram, Discord, WhatsApp, Drive, Gmail), with instant clipboard copy fallback.
+  - Added `[ 📋 COPY CONSOLE ]` and cyberpunk toast notifications.
+  - Added `pwm log` / `pwm dump` CLI command to `peridot-wlan-mode`.
+- **One-Tap Channel Matrix in WebUI**:
+  - Added direct channel switcher buttons: `CH 1`, `CH 3`, `CH 6`, `CH 11`, `CH 36`, `CH 149`, `AUTO`.
+- **Packaged & Released**:
+  - Module bumped to `v2.2-WebUI` (`versionCode=22`).
+  - Flashable ZIP generated: `Izanami-QCA6750-Monitor-WebUI-v2.2.zip`.

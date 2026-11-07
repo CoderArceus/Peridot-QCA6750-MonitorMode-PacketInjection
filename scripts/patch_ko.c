@@ -364,8 +364,12 @@ int main(int argc, char **argv) {
     snprintf(p[4], sizeof(p[4]), "%s/kernel.release", dir);
     snprintf(p[5], sizeof(p[5]), "/data/adb/modules/peridot-qca6750-injection-test/system/bin/peridot-wlan-mode");
 
-    for (int i = 0; i < 4; i++) update_file_string(p[i], target_krel);
+    for (int i = 0; i < 4; i++) {
+        update_file_string(p[i], target_krel);
+        chmod(p[i], 0755);
+    }
     update_file_string(p[5], target_krel);
+    chmod(p[5], 0755);
 
     FILE *kr = fopen(p[4], "w");
     if (kr) {

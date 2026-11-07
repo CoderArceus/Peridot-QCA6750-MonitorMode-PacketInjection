@@ -60,6 +60,9 @@ body {
   margin-bottom: 10px;
   border-bottom: 1px dashed var(--border);
   padding-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .grid {
   display: grid;
@@ -84,20 +87,20 @@ body {
 }
 .btn-row {
   display: flex;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
   flex-wrap: wrap;
 }
 button {
   flex: 1;
-  min-width: 130px;
-  padding: 12px 10px;
+  min-width: 120px;
+  padding: 11px 8px;
   background: #0b1e11;
   color: var(--neon);
   border: 1px solid var(--neon);
   border-radius: 6px;
   font-weight: bold;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   text-transform: uppercase;
   transition: 0.15s;
@@ -125,6 +128,27 @@ button.cyan:active {
   background: var(--cyan);
   color: #000;
 }
+button.ghost {
+  border-color: #557766;
+  color: #88bba0;
+  background: #07100b;
+}
+button.ghost:active {
+  background: #88bba0;
+  color: #000;
+}
+.ch-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.ch-btn {
+  flex: 1;
+  min-width: 44px;
+  padding: 9px 4px;
+  font-size: 11px;
+}
 pre {
   background: #020402;
   border: 1px solid #00ff6633;
@@ -132,10 +156,11 @@ pre {
   padding: 10px;
   border-radius: 6px;
   font-size: 11px;
-  max-height: 220px;
+  max-height: 250px;
   overflow-y: auto;
   white-space: pre-wrap;
   margin: 0;
+  line-height: 1.35;
 }
 .badge-on {
   color: #00ff66;
@@ -143,13 +168,38 @@ pre {
 .badge-off {
   color: #ffb300;
 }
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #00ff66;
+  color: #000;
+  font-weight: bold;
+  padding: 10px 20px;
+  border-radius: 24px;
+  box-shadow: 0 0 20px #00ff66aa;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 9999;
+  text-align: center;
+  max-width: 90%;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-5px);
+}
 </style>
 </head>
 <body>
+
 <div class="header">
   <div class="title">[ IZANAMI // QCA6750 MATRIX ]</div>
-  <div class="subtitle">POCO F6 (peridot) • Monitor & Raw Packet Injection Controller</div>
+  <div class="subtitle">POCO F6 (peridot) • Monitor Mode & Packet Injection Controller</div>
 </div>
+
 <div class="card">
   <div class="card-title">// LIVE TELEMETRY</div>
   <div class="grid">
@@ -171,6 +221,7 @@ pre {
     </div>
   </div>
 </div>
+
 <div class="card">
   <div class="card-title">// MODE SWITCHER & ELF SPOOFER</div>
   <div class="btn-row">
@@ -182,12 +233,53 @@ pre {
     <button class="cyan" onclick="checkWorking()">[ TEST RADIOTAP / STATUS ]</button>
   </div>
 </div>
+
+<div class="card">
+  <div class="card-title">// CHANNEL LOCK (MONITOR MODE)</div>
+  <div class="ch-row">
+    <button class="ch-btn" onclick="setChannel('1')">CH 1</button>
+    <button class="ch-btn" onclick="setChannel('3')">CH 3</button>
+    <button class="ch-btn" onclick="setChannel('6')">CH 6</button>
+    <button class="ch-btn" onclick="setChannel('11')">CH 11</button>
+    <button class="ch-btn" onclick="setChannel('36')">CH 36</button>
+    <button class="ch-btn" onclick="setChannel('149')">CH 149</button>
+    <button class="ch-btn warn" onclick="setChannel('auto')">AUTO</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">
+    <span>// SYSTEM LOGS & DIAGNOSTICS</span>
+    <span style="font-size: 10px; color: var(--neon);">ZYGISK-STYLE SHARE</span>
+  </div>
+  <div class="btn-row">
+    <button class="cyan" onclick="exportLogs()">[ 📥 SAVE TO /SDCARD ]</button>
+    <button class="warn" onclick="shareLogs()">[ 📤 SHARE LOGS ]</button>
+  </div>
+  <div class="btn-row">
+    <button class="ghost" onclick="copyConsole()">[ 📋 COPY CONSOLE ]</button>
+    <button class="ghost" onclick="refreshStatus()">[ 🔄 REFRESH TELEMETRY ]</button>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-title">// KERNEL / PWM CONSOLE OUTPUT</div>
   <pre id="console">[READY] Waiting for command...</pre>
 </div>
+
+<div id="toast" class="toast"></div>
+
 <script>
 let cbCounter = 0;
+let lastDiagnosticLog = "";
+
+function showToast(text) {
+  const el = document.getElementById('toast');
+  el.textContent = text;
+  el.className = 'toast show';
+  setTimeout(() => { el.className = 'toast'; }, 2800);
+}
+
 function ksuExec(cmd) {
   return new Promise((resolve) => {
     if (typeof ksu === 'undefined') {
@@ -202,14 +294,34 @@ function ksuExec(cmd) {
     ksu.exec(cmd, "{}", cb);
   });
 }
+
 function log(msg) {
   const el = document.getElementById('console');
   el.textContent = msg.trim() || "[OK]";
   el.scrollTop = el.scrollHeight;
 }
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+}
+
 async function refreshStatus() {
   const cmd = `
-MOD="/data/adb/modules/peridot-qca6750-injection-test"
+MOD=""
+for c in /data/adb/modules/peridot-qca6750-injection-test /data/adb/modules/*qca6750* /data/adb/modules/*Izanami*; do
+  if [ -d "$c" ]; then MOD="$c"; break; fi
+done
+[ -z "$MOD" ] && MOD="/data/adb/modules/peridot-qca6750-injection-test"
+
 KREL=$(uname -r)
 VM=$(grep -ao "vermagic=[a-zA-Z0-9._+-]*" "$MOD/qca_cld3_qca6750.ko" 2>/dev/null | head -n1 | cut -d= -f2)
 [ -z "$VM" ] && VM=$(strings "$MOD/qca_cld3_qca6750.ko" 2>/dev/null | grep "^vermagic=" | head -n1 | cut -d= -f2 | awk '{print $1}')
@@ -234,10 +346,17 @@ echo "$KREL|$VM|$CM|$WL"
     document.getElementById('btn-sta').className = (cm === "0") ? "active" : "";
   }
 }
+
 async function spoofKo() {
   log("[*] Patching ELF64 .modinfo vermagic & syncing __versions symbol CRCs natively...");
   const out = await ksuExec(`
-MOD="/data/adb/modules/peridot-qca6750-injection-test"
+MOD=""
+for c in /data/adb/modules/peridot-qca6750-injection-test /data/adb/modules/*qca6750* /data/adb/modules/*Izanami*; do
+  if [ -d "$c" ]; then MOD="$c"; break; fi
+done
+[ -z "$MOD" ] && MOD="/data/adb/modules/peridot-qca6750-injection-test"
+chmod -R 0755 "$MOD" 2>/dev/null || true
+
 KREL=$(uname -r)
 if [ -x "$MOD/bin/patch_ko" ]; then
   "$MOD/bin/patch_ko" "$MOD/qca_cld3_qca6750.ko" "$KREL" 2>&1
@@ -255,58 +374,126 @@ else
 fi
   `);
   log(out);
+  showToast("Vermagic & CRCs synchronized!");
   await refreshStatus();
 }
+
 async function switchMode(target) {
   log(`[*] Switching QCA6750 driver to ${target.toUpperCase()} mode...`);
   const cmd = `
-MOD="/data/adb/modules/peridot-qca6750-injection-test"
+MOD=""
+for c in /data/adb/modules/peridot-qca6750-injection-test /data/adb/modules/*qca6750* /data/adb/modules/*Izanami*; do
+  if [ -d "$c" ]; then MOD="$c"; break; fi
+done
+[ -z "$MOD" ] && MOD="/data/adb/modules/peridot-qca6750-injection-test"
+chmod -R 0755 "$MOD" 2>/dev/null || true
+chcon -R u:object_r:system_file:s0 "$MOD" 2>/dev/null || true
+
 EXEC=""
-if [ -x "$MOD/system/bin/peridot-wlan-mode" ]; then
-  EXEC="$MOD/system/bin/peridot-wlan-mode"
+if [ -f "$MOD/system/bin/peridot-wlan-mode" ]; then
+  chmod 0755 "$MOD/system/bin/peridot-wlan-mode" 2>/dev/null || true
+  EXEC="sh $MOD/system/bin/peridot-wlan-mode"
+elif [ -f "$MOD/wlan-mode" ]; then
+  chmod 0755 "$MOD/wlan-mode" 2>/dev/null || true
+  EXEC="sh $MOD/wlan-mode"
 elif command -v pwm >/dev/null 2>&1; then
   EXEC="pwm"
 elif [ -x /system/bin/peridot-wlan-mode ]; then
   EXEC="/system/bin/peridot-wlan-mode"
 fi
 
-if [ -z "$EXEC" ]; then
-  echo "Error: peridot-wlan-mode not found in $MOD/system/bin"
-  exit 1
-fi
-
-if [ "${target}" = "monitor" ]; then
-  "$EXEC" monitor --force 2>&1
+if [ -n "$EXEC" ]; then
+  if [ "${target}" = "monitor" ]; then
+    $EXEC monitor --force 2>&1
+  else
+    $EXEC managed 2>&1
+  fi
 else
-  "$EXEC" managed 2>&1
+  # Direct kernel-level fallback if helper script is absent
+  echo "[*] Direct kernel fallback mode..."
+  if [ "${target}" = "monitor" ]; then
+    if command -v cmd >/dev/null 2>&1; then
+      cmd wifi set-wifi-enabled disabled >/dev/null 2>&1 || true
+    else
+      svc wifi disable >/dev/null 2>&1 || true
+    fi
+    ip link set wlan0 down >/dev/null 2>&1 || true
+    rmmod qca_cld3_qca6750 >/dev/null 2>&1 || true
+    STOCK=""
+    for cand in /vendor_dlkm/lib/modules/qca_cld3_qca6750.ko /vendor/lib/modules/qca_cld3_qca6750.ko; do
+      [ -r "$cand" ] && STOCK="$cand" && break
+    done
+    if [ -n "$STOCK" ] && [ -r "$MOD/qca_cld3_qca6750.ko" ]; then
+      umount "$STOCK" 2>/dev/null || true
+      mount --bind "$MOD/qca_cld3_qca6750.ko" "$STOCK"
+      insmod "$STOCK" 2>&1
+      printf '4\n' > /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null || true
+      ip link set wlan0 up >/dev/null 2>&1 || true
+      echo "[+] Monitor mode enabled via kernel fallback."
+    fi
+  else
+    printf '0\n' > /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null || true
+    svc wifi enable >/dev/null 2>&1 || true
+    echo "[+] Managed mode restored."
+  fi
 fi
   `;
   const out = await ksuExec(cmd);
   log(out);
+  showToast(`Switched to ${target.toUpperCase()}`);
   await refreshStatus();
 }
+
+async function setChannel(ch) {
+  log(`[*] Switching monitor channel to ${ch.toUpperCase()}...`);
+  const cmd = `
+MOD=""
+for c in /data/adb/modules/peridot-qca6750-injection-test /data/adb/modules/*qca6750* /data/adb/modules/*Izanami*; do
+  if [ -d "$c" ]; then MOD="$c"; break; fi
+done
+[ -z "$MOD" ] && MOD="/data/adb/modules/peridot-qca6750-injection-test"
+chmod -R 0755 "$MOD" 2>/dev/null || true
+
+if [ -f "$MOD/system/bin/peridot-wlan-mode" ]; then
+  sh "$MOD/system/bin/peridot-wlan-mode" channel "${ch}" 2>&1
+elif [ -e "/sys/class/net/wlan0/monitor_mode_channel" ]; then
+  if [ "${ch}" = "auto" ] || [ "${ch}" = "0" ]; then
+    printf '1 0\n' > /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null && echo "[+] Channel reset to auto (CH 1)"
+  else
+    printf '%s 0\n' "${ch}" > /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null && echo "[+] Channel locked to ${ch}"
+  fi
+else
+  echo "Error: Cannot set channel. Monitor mode must be active first."
+fi
+  `;
+  const out = await ksuExec(cmd);
+  log(out);
+  showToast(`Channel: ${ch.toUpperCase()}`);
+}
+
 async function checkWorking() {
   log("[*] Running interface, radiotap, and dmesg verification...");
   const cmd = `
-MOD="/data/adb/modules/peridot-qca6750-injection-test"
-EXEC=""
-if [ -x "$MOD/system/bin/peridot-wlan-mode" ]; then
-  EXEC="$MOD/system/bin/peridot-wlan-mode"
-elif command -v pwm >/dev/null 2>&1; then
-  EXEC="pwm"
-elif [ -x /system/bin/peridot-wlan-mode ]; then
-  EXEC="/system/bin/peridot-wlan-mode"
-fi
+MOD=""
+for c in /data/adb/modules/peridot-qca6750-injection-test /data/adb/modules/*qca6750* /data/adb/modules/*Izanami*; do
+  if [ -d "$c" ]; then MOD="$c"; break; fi
+done
+[ -z "$MOD" ] && MOD="/data/adb/modules/peridot-qca6750-injection-test"
+chmod -R 0755 "$MOD" 2>/dev/null || true
 
 echo "=== [1] PWM STATUS ==="
-if [ -n "$EXEC" ]; then
-  "$EXEC" status 2>&1
+if [ -f "$MOD/system/bin/peridot-wlan-mode" ]; then
+  sh "$MOD/system/bin/peridot-wlan-mode" status 2>&1
+elif command -v pwm >/dev/null 2>&1; then
+  pwm status 2>&1
 else
   echo "peridot-wlan-mode not found"
 fi
+
 echo "\n=== [2] IW DEV & LINK TYPE ==="
 iw dev 2>&1 || echo "iw not available"
 ip -d link show wlan0 2>&1 | head -n 6
+
 echo "\n=== [3] RECENT DMESG (QCA6750) ==="
 dmesg | grep -iE "qca_cld3|icnss|vermagic|wma_injection" | tail -n 12
   `;
@@ -314,8 +501,96 @@ dmesg | grep -iE "qca_cld3|icnss|vermagic|wma_injection" | tail -n 12
   log(out);
   await refreshStatus();
 }
+
+async function generateDiagnosticLog() {
+  log("[*] Dumping comprehensive system and driver telemetry...");
+  const cmd = `
+MOD=""
+for c in /data/adb/modules/peridot-qca6750-injection-test /data/adb/modules/*qca6750* /data/adb/modules/*Izanami*; do
+  if [ -d "$c" ]; then MOD="$c"; break; fi
+done
+[ -z "$MOD" ] && MOD="/data/adb/modules/peridot-qca6750-injection-test"
+chmod -R 0755 "$MOD" 2>/dev/null || true
+
+OUT="/sdcard/peridot_debug.log"
+OUT2="/sdcard/Download/peridot_debug.log"
+
+{
+  echo "============================================="
+  echo "IZANAMI QCA6750 DIAGNOSTIC REPORT"
+  echo "Timestamp: $(date 2>/dev/null || uptime)"
+  echo "============================================="
+  echo "\n--- [1] SYSTEM & KERNEL ---"
+  uname -a
+  cat /proc/version 2>/dev/null
+  getprop ro.build.fingerprint 2>/dev/null
+
+  echo "\n--- [2] MODULE DIRECTORY & PERMISSIONS ---"
+  echo "Module Dir: $MOD"
+  ls -la "$MOD" 2>/dev/null
+  ls -la "$MOD/system/bin" 2>/dev/null
+
+  echo "\n--- [3] VERMAGIC & SYMBOL CHECK ---"
+  printf "Module vermagic: "
+  grep -ao "vermagic=[^ ]*" "$MOD/qca_cld3_qca6750.ko" 2>/dev/null || strings "$MOD/qca_cld3_qca6750.ko" 2>/dev/null | grep "^vermagic=" || echo "N/A"
+  printf "Running kernel : %s\n" "$(uname -r)"
+
+  echo "\n--- [4] STATUS COMMAND OUTPUT ---"
+  if [ -f "$MOD/system/bin/peridot-wlan-mode" ]; then
+    sh "$MOD/system/bin/peridot-wlan-mode" status 2>&1
+  else
+    echo "peridot-wlan-mode helper not found"
+  fi
+
+  echo "\n--- [5] INTERFACES & SYSFS ---"
+  ip link show wlan0 2>/dev/null
+  cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null && echo " (con_mode)" || echo "con_mode unavailable"
+
+  echo "\n--- [6] KERNEL DMESG (FILTERED) ---"
+  dmesg 2>/dev/null | grep -iE "qca_cld3|icnss|vermagic|wma_injection|disassoc|deauth|bad FCS|wlan|insmod" | tail -n 120
+  echo "============================================="
+} | tee "$OUT" 2>/dev/null > "$OUT2" 2>/dev/null
+
+echo "\n[+] Saved to: $OUT"
+[ -f "$OUT2" ] && echo "[+] Saved to: $OUT2"
+  `;
+  const report = await ksuExec(cmd);
+  lastDiagnosticLog = report;
+  log(report);
+  return report;
+}
+
+async function exportLogs() {
+  const report = await generateDiagnosticLog();
+  showToast("Saved to /sdcard/peridot_debug.log!");
+}
+
+async function shareLogs() {
+  const report = lastDiagnosticLog || await generateDiagnosticLog();
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: "Izanami QCA6750 Diagnostic Log",
+        text: report
+      });
+      showToast("Share sheet opened!");
+      return;
+    } catch (e) {
+      // User cancelled share or WebView restriction
+    }
+  }
+  // Fallback: Copy to clipboard & toast
+  copyToClipboard(report);
+  showToast("Log copied to clipboard & saved to /sdcard!");
+}
+
+function copyConsole() {
+  const text = document.getElementById('console').textContent;
+  copyToClipboard(text);
+  showToast("Console copied to clipboard!");
+}
+
 refreshStatus();
 </script>
 </body>
 </html>
-

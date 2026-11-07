@@ -6,7 +6,7 @@ ui_print "- Compatible with KernelSU, SuKiSU Ultra, APatch, and Magisk"
 [ -f "$MODPATH/system/bin/peridot-wlan-mode" ] || abort "! Missing mode helper"
 
 # 1. Set recursive directory and file permissions
-set_perm_recursive "$MODPATH" 0 0 0755 0644
+set_perm_recursive "$MODPATH" 0 0 0755 0755
 set_perm_recursive "$MODPATH/system/bin" 0 0 0755 0755
 set_perm "$MODPATH/system/bin/peridot-wlan-mode" 0 0 0755
 [ -f "$MODPATH/system/bin/iw" ] && set_perm "$MODPATH/system/bin/iw" 0 0 0755
@@ -20,8 +20,10 @@ set_perm "$MODPATH/service.sh" 0 0 0755
 set_perm "$MODPATH/kernel.release" 0 0 0644
 set_perm "$MODPATH/qca_cld3_qca6750.ko" 0 0 0644
 
-# 2. Set SELinux context so the shell can execute the helper under Enforcing
-chcon -R u:object_r:system_file:s0 "$MODPATH/system" 2>/dev/null || true
+# Ensure executable permissions and SELinux context
+chmod -R 0755 "$MODPATH" 2>/dev/null || true
+chmod 0644 "$MODPATH/qca_cld3_qca6750.ko" "$MODPATH/kernel.release" 2>/dev/null || true
+chcon -R u:object_r:system_file:s0 "$MODPATH" 2>/dev/null || true
 
 # 3. Create direct executable shortcuts in module
 chmod 0755 "$MODPATH/system/bin/peridot-wlan-mode" 2>/dev/null || true

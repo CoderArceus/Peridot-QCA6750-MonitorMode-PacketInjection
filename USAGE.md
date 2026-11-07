@@ -20,6 +20,7 @@ Once the Magisk / KernelSU / APatch module is installed, the helper command is a
 | **Set Operating Channel** | `su -c pwm channel <1-165>` | `su -c peridot-wlan-mode channel <ch>` | Locks radio & STA helper to specified channel |
 | **Revert Channel to Auto** | `su -c pwm channel auto` | `su -c peridot-wlan-mode channel auto` | Resets channel hopping baseline |
 | **Spoof Vermagic + CRCs** | `su -c pwm spoof` | `su -c peridot-wlan-mode spoof` | Adapts driver vermagic/CRCs natively (Zero Python required) |
+| **Export Diagnostics & Logs** | `su -c pwm log` | `su -c peridot-wlan-mode log` | Dumps full report to `/sdcard/peridot_debug.log` |
 
 > [!NOTE]
 > **Automatic Adaptation on Boot**:
