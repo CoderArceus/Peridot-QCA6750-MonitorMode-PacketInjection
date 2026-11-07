@@ -613,8 +613,31 @@ if [ -e "/sys/class/net/wlan0/type" ]; then
 fi
 iw dev wlan0 info 2>&1 || iw dev 2>&1 || echo "iw info not available"
 
-echo "\n=== [4] RECENT DMESG (QCA6750 & INJECTION) ==="
-dmesg | grep -iE "qca_cld3|icnss|vermagic|wma_injection|hdd_monitor|wmi_mgmt" | tail -n 14
+echo "\n=== [4] LIVE RADIOTAP PACKET SNIFFER (2s TEST) ==="
+if [ "$CM" = "4" ]; then
+  TCPDUMP=""
+  for c in /system/bin/tcpdump /data/adb/modules/peridot-qca6750-injection-test/bin/tcpdump $(command -v tcpdump 2>/dev/null); do
+    if [ -x "$c" ]; then TCPDUMP="$c"; break; fi
+  done
+  if [ -n "$TCPDUMP" ]; then
+    echo "[*] Sniffing live 802.11 radiotap frames on wlan0 (timeout 2s)..."
+    SAMPLE=$(timeout 2 "$TCPDUMP" -i wlan0 -c 3 -e -t 2>/dev/null || "$TCPDUMP" -i wlan0 -c 3 -e -t 2>/dev/null)
+    if [ -n "$SAMPLE" ]; then
+      echo "[+] SUCCESS: Live 802.11 Radiotap frames captured:"
+      echo "$SAMPLE"
+    else
+      echo "[*] Listening on wlan0: No packets caught in 2s (tune to an active channel with traffic above)."
+    fi
+  else
+    echo "Interface counters:"
+    ip -s link show wlan0 | grep -A1 "RX:"
+  fi
+else
+  echo "[!] Driver in STA mode. Tap [ ENABLE MONITOR (4) ] to capture radiotap frames."
+fi
+
+echo "\n=== [5] DRIVER & INJECTION EVENTS (DMESG) ==="
+dmesg 2>/dev/null | grep -iE "wma_injection|hdd_driver_mode_change|__hdd_mon_open|send_vdev_start|promiscuous" | tail -n 8
   `;
   const out = await ksuExec(cmd);
   log(out);
@@ -667,12 +690,10 @@ OUT2="/sdcard/Download/peridot_debug.log"
   echo "\n--- [5] INTERFACES & SYSFS ---"
   ip link show wlan0 2>/dev/null
   cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null && echo " (con_mode)" || echo "con_mode unavailable"
-  if [ -e "/sys/class/net/wlan0/monitor_mode_channel" ]; then
-    echo "monitor_mode_channel: $(cat /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null)"
-  fi
+  iw dev wlan0 info 2>/dev/null | grep -E "channel|type|addr" || echo "iw info not available"
 
   echo "\n--- [6] KERNEL DMESG (FILTERED) ---"
-  dmesg 2>/dev/null | grep -iE "qca_cld3|icnss|vermagic|wma_injection|disassoc|deauth|bad FCS|wlan|insmod" | tail -n 120
+  dmesg 2>/dev/null | grep -iE "qca_cld3|vermagic|wma_injection|disassoc|deauth|bad FCS|wlan0|hdd_driver_mode_change|__hdd_mon_open|send_vdev_start" | grep -vE "thermal zone|wlan_mac.bin|dev_sanity_check|populate_dbr|dbr_init" | tail -n 80
 
   echo "\n--- [7] RECENT WEBUI CONSOLE OUTPUT ---"
   cat << 'EOF_CONSOLE'

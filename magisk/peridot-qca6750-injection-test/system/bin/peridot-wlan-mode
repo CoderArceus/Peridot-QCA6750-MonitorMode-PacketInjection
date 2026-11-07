@@ -366,9 +366,10 @@ case "${1:-}" in
 			echo "\n--- [5] INTERFACES & SYSFS ---"
 			ip link show wlan0 2>/dev/null
 			cat "$PARAM" 2>/dev/null && echo " (con_mode)" || echo "con_mode unavailable"
+			iw dev wlan0 info 2>/dev/null | grep -E "channel|type|addr" || echo "iw info not available"
 
 			echo "\n--- [6] KERNEL DMESG (FILTERED) ---"
-			dmesg 2>/dev/null | grep -iE "qca_cld3|icnss|vermagic|wma_injection|disassoc|deauth|bad FCS|wlan|insmod" | tail -n 120
+			dmesg 2>/dev/null | grep -iE "qca_cld3|vermagic|wma_injection|disassoc|deauth|bad FCS|wlan0|hdd_driver_mode_change|__hdd_mon_open|send_vdev_start" | grep -vE "thermal zone|wlan_mac.bin|dev_sanity_check|populate_dbr|dbr_init" | tail -n 80
 			echo "============================================="
 		} | tee "$OUT" 2>/dev/null > "$OUT2" 2>/dev/null || true
 		cat "$OUT" 2>/dev/null || cat "$OUT2" 2>/dev/null || true
