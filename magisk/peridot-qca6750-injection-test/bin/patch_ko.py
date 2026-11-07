@@ -162,3 +162,4 @@ if __name__ == "__main__":
     target_module = sys.argv[1] if len(sys.argv) > 1 else "/data/adb/modules/peridot-qca6750-injection-test/qca_cld3_qca6750.ko"
     target_kernel = sys.argv[2] if len(sys.argv) > 2 else None
     patch_ko(target_module, target_kernel)
+

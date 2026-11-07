@@ -1,15 +1,15 @@
-# Izanami QCA6750 Monitor Mode & Packet Injection (v2.0-WebUI)
+# Izanami QCA6750 Monitor Mode & Packet Injection (v2.1-WebUI)
 
 [![Target: POCO F6 (peridot)](https://img.shields.io/badge/Target-POCO%20F6%20%28peridot%29-blue?style=for-the-badge&logo=android)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
 [![Platform: SM8635 / QCA6750](https://img.shields.io/badge/SoC-Snapdragon%208s%20Gen%203-red?style=for-the-badge&logo=qualcomm)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
-[![Kernel: Linux 6.1 Stock GKI](https://img.shields.io/badge/Kernel-Linux%206.1%20%28Universal%20GKI%29-green?style=for-the-badge&logo=linux)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
+[![Kernel: Linux 6.1 Universal GKI](https://img.shields.io/badge/Kernel-Linux%206.1%20%28Universal%20GKI%29-green?style=for-the-badge&logo=linux)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
 [![Author: CoderArceus & Sahayaraj](https://img.shields.io/badge/Author-CoderArceus%20%26%20Sahayaraj-orange?style=for-the-badge)](https://github.com/CoderArceus)
 [![Root: KernelSU / APatch / Magisk](https://img.shields.io/badge/Root-KSU%20%7C%20APatch%20%7C%20Magisk-purple?style=for-the-badge)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection)
-[![Release: v2.0-WebUI](https://img.shields.io/badge/Release-v2.0--WebUI-brightgreen?style=for-the-badge)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest)
+[![Release: v2.1-WebUI](https://img.shields.io/badge/Release-v2.1--WebUI-brightgreen?style=for-the-badge)](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest)
 
 Native, crash-free 802.11 promiscuous monitor mode and raw management + data packet injection for the **POCO F6 / Redmi Turbo 3 (`peridot`)**, powered by Qualcomm Snapdragon 8s Gen 3 (SM8635) and FastConnect / QCA6750 running **Android 17 / Linux 6.1 (`android14-6.1`)**.
 
-Featuring a built-in **KernelSU WebUI Matrix**, **Action Button** toggle, and an **ELF64 Vermagic + Symbol CRC Auto-Patcher** that enables loading the injection driver across any custom or updated 6.1 GKI kernel build!
+Featuring a built-in **KernelSU WebUI Matrix**, **Action Button** toggle, and a **Native Standalone AArch64 ELF64 Auto-Vermagic + Symbol CRC Spoofer (Zero-Python)** that automatically adapts and loads the injection driver on boot across ANY custom or stock 6.1 GKI kernel build!
 
 ---
 
@@ -29,7 +29,7 @@ Explore detailed technical documentation, CLI tutorials, and research records:
 
 ## ⚡ Feature Comparison Matrix
 
-| Feature | Stock OEM Driver | Evil_Twin / Generic Monitor Ports | **This Project (`Izanami v2.0-WebUI`)** |
+| Feature | Stock OEM Driver | Evil_Twin / Generic Monitor Ports | **This Project (`Izanami v2.1-WebUI`)** |
 | :--- | :--- | :--- | :--- |
 | **802.11 Monitor Mode** | ❌ Blocked (`con_mode=4` fails) | ⚠️ Promiscuous RX only | ✅ **Full Promiscuous Sniffing** |
 | **Raw Packet Injection** | ❌ Inbound & outbound dropped | ❌ Fails / Dropped by datapath | ✅ **Native WMI STA Helper Injection** |
@@ -37,7 +37,8 @@ Explore detailed technical documentation, CLI tutorials, and research records:
 | **Data Frame Injection (EAPOL)** | ❌ Blocked | ❌ Not supported | ✅ **Full 802.11 Data / EAPOL / 802.1X Tx** |
 | **KernelSU WebUI Dashboard** | ❌ None | ❌ None | ✅ **Neon Matrix Telemetry & Controls** |
 | **KSU / APatch Action Button** | ❌ None | ❌ None | ✅ **One-Tap Mode Toggle in Manager** |
-| **Universal Vermagic Spoofer** | ❌ Fails on mismatched kernel | ❌ Locked to specific kernel build | ✅ **ELF64 Vermagic + CRC Auto-Patcher** |
+| **Auto-Vermagic on Boot** | ❌ Fails on mismatched kernel | ❌ Locked to specific kernel build | ✅ **Native Zero-Python Auto-Spoof on Boot** |
+| **Universal Vermagic Spoofer** | ❌ Fails on mismatched kernel | ❌ Locked to specific kernel build | ✅ **Standalone AArch64 ELF64 Patcher (`patch_ko`)** |
 | **Rapid Channel Hopping** | N/A | ❌ Firmware assert (`pcss_ssr_tm`) | ✅ **100% Stable (`wash`, `airodump`)** |
 | **System Stability** | N/A | ❌ Firmware assert / PMIC watchdog panic | ✅ **100% Crash-Free (Tested under load)** |
 | **Channel `-1` Bug** | ❌ No WEXT ioctls exposed | ❌ Tools fail with "Channel -1" | ✅ **Fixed (`SIOCGIWFREQ` & sysfs sync)** |
@@ -53,9 +54,9 @@ Explore detailed technical documentation, CLI tutorials, and research records:
 
 Flashable ZIP packages are distributed exclusively through [**GitHub Releases**](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest) to keep the Git source tree clean:
 
-1. Download [**`Peridot-QCA6750-MonitorMode-v1.2.zip`**](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest).
-2. Flash the module zip in **KernelSU**, **SuKiSU Ultra (v0.4+)**, **APatch**, or **Magisk (v26+)**.
-3. Reboot your device.
+1. Download [**`Izanami-QCA6750-Monitor-WebUI-v2.1.zip`**](https://github.com/CoderArceus/Peridot-QCA6750-MonitorMode-PacketInjection/releases/latest).
+2. Flash the module zip in **KernelSU**, **KernelSU-Next**, **SuKiSU Ultra (v0.4+)**, **APatch**, or **Magisk (v26+)**.
+3. Reboot your device. Vermagic and symbol CRCs are automatically verified and adapted to your kernel on boot!
 
 ### 2. Global CLI Commands Reference
 

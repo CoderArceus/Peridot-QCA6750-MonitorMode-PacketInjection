@@ -211,7 +211,9 @@ async function refreshStatus() {
   const cmd = `
 MOD="/data/adb/modules/peridot-qca6750-injection-test"
 KREL=$(uname -r)
-VM=$(strings "$MOD/qca_cld3_qca6750.ko" 2>/dev/null | grep "^vermagic=" | head -n1 | cut -d= -f2 | awk '{print $1}')
+VM=$(grep -ao "vermagic=[a-zA-Z0-9._+-]*" "$MOD/qca_cld3_qca6750.ko" 2>/dev/null | head -n1 | cut -d= -f2)
+[ -z "$VM" ] && VM=$(strings "$MOD/qca_cld3_qca6750.ko" 2>/dev/null | grep "^vermagic=" | head -n1 | cut -d= -f2 | awk '{print $1}')
+[ -z "$VM" ] && [ -f "$MOD/kernel.release" ] && VM=$(cat "$MOD/kernel.release" 2>/dev/null)
 CM=$(cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null || cat /sys/module/wlan/parameters/con_mode 2>/dev/null || echo "N/A")
 WL=$(ip -o link show wlan0 2>/dev/null | awk '{print $2, $3, $9}' || echo "DOWN")
 echo "$KREL|$VM|$CM|$WL"
@@ -233,42 +235,82 @@ echo "$KREL|$VM|$CM|$WL"
   }
 }
 async function spoofKo() {
-  log("[*] Patching ELF64 .modinfo vermagic & syncing __versions symbol CRCs...");
+  log("[*] Patching ELF64 .modinfo vermagic & syncing __versions symbol CRCs natively...");
   const out = await ksuExec(`
 MOD="/data/adb/modules/peridot-qca6750-injection-test"
-PY="/data/data/com.termux/files/usr/bin/python3"
-[ ! -x "$PY" ] && PY="python3"
-"$PY" "$MOD/bin/patch_ko.py" "$MOD/qca_cld3_qca6750.ko"
 KREL=$(uname -r)
-for f in "$MOD/system/bin/peridot-wlan-mode" "$MOD/system/bin/pwm"; do
-  [ -f "$f" ] && sed -i "s/EXPECTED_RELEASE=.*/EXPECTED_RELEASE=\"$KREL\"/g; s/6.1.[0-9]*-[a-zA-Z0-9._+-]*/$KREL/g" "$f"
-done
+if [ -x "$MOD/bin/patch_ko" ]; then
+  "$MOD/bin/patch_ko" "$MOD/qca_cld3_qca6750.ko" "$KREL" 2>&1
+elif [ -f "$MOD/bin/patch_ko" ]; then
+  chmod 0755 "$MOD/bin/patch_ko"
+  "$MOD/bin/patch_ko" "$MOD/qca_cld3_qca6750.ko" "$KREL" 2>&1
+else
+  PY="/data/data/com.termux/files/usr/bin/python3"
+  [ ! -x "$PY" ] && PY="python3"
+  if command -v "$PY" >/dev/null 2>&1 && [ -f "$MOD/bin/patch_ko.py" ]; then
+    "$PY" "$MOD/bin/patch_ko.py" "$MOD/qca_cld3_qca6750.ko" "$KREL" 2>&1
+  else
+    echo "Error: Native patcher $MOD/bin/patch_ko not found!"
+  fi
+fi
   `);
   log(out);
   await refreshStatus();
 }
 async function switchMode(target) {
   log(`[*] Switching QCA6750 driver to ${target.toUpperCase()} mode...`);
-  if (target === 'monitor') {
-    const out = await ksuExec("pwm monitor --force 2>&1 || /system/bin/peridot-wlan-mode monitor --force 2>&1");
-    log(out);
-  } else {
-    const out = await ksuExec("pwm managed 2>&1 || pwm sta 2>&1 || (echo 0 > /sys/module/qca_cld3_qca6750/parameters/con_mode && svc wifi enable) 2>&1");
-    log(out);
-  }
+  const cmd = `
+MOD="/data/adb/modules/peridot-qca6750-injection-test"
+EXEC=""
+if [ -x "$MOD/system/bin/peridot-wlan-mode" ]; then
+  EXEC="$MOD/system/bin/peridot-wlan-mode"
+elif command -v pwm >/dev/null 2>&1; then
+  EXEC="pwm"
+elif [ -x /system/bin/peridot-wlan-mode ]; then
+  EXEC="/system/bin/peridot-wlan-mode"
+fi
+
+if [ -z "$EXEC" ]; then
+  echo "Error: peridot-wlan-mode not found in $MOD/system/bin"
+  exit 1
+fi
+
+if [ "${target}" = "monitor" ]; then
+  "$EXEC" monitor --force 2>&1
+else
+  "$EXEC" managed 2>&1
+fi
+  `;
+  const out = await ksuExec(cmd);
+  log(out);
   await refreshStatus();
 }
 async function checkWorking() {
   log("[*] Running interface, radiotap, and dmesg verification...");
-  const out = await ksuExec(`
+  const cmd = `
+MOD="/data/adb/modules/peridot-qca6750-injection-test"
+EXEC=""
+if [ -x "$MOD/system/bin/peridot-wlan-mode" ]; then
+  EXEC="$MOD/system/bin/peridot-wlan-mode"
+elif command -v pwm >/dev/null 2>&1; then
+  EXEC="pwm"
+elif [ -x /system/bin/peridot-wlan-mode ]; then
+  EXEC="/system/bin/peridot-wlan-mode"
+fi
+
 echo "=== [1] PWM STATUS ==="
-pwm status 2>&1
+if [ -n "$EXEC" ]; then
+  "$EXEC" status 2>&1
+else
+  echo "peridot-wlan-mode not found"
+fi
 echo "\n=== [2] IW DEV & LINK TYPE ==="
-iw dev 2>&1
+iw dev 2>&1 || echo "iw not available"
 ip -d link show wlan0 2>&1 | head -n 6
 echo "\n=== [3] RECENT DMESG (QCA6750) ==="
-dmesg | grep -iE "qca_cld3|icnss|vermagic|wma_injection" | tail -n 10
-  `);
+dmesg | grep -iE "qca_cld3|icnss|vermagic|wma_injection" | tail -n 12
+  `;
+  const out = await ksuExec(cmd);
   log(out);
   await refreshStatus();
 }
@@ -276,3 +318,4 @@ refreshStatus();
 </script>
 </body>
 </html>
+

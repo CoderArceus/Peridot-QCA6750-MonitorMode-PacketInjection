@@ -22,6 +22,10 @@ fi
 
 MODULE="$MODDIR/$DRIVER.ko"
 MARKER="$MODDIR/injection_driver_loaded_this_boot"
+PATCHER="$MODDIR/bin/patch_ko"
+[ ! -x "$PATCHER" ] && [ -x "$SCRIPT_DIR/patch_ko" ] && PATCHER="$SCRIPT_DIR/patch_ko"
+[ ! -x "$PATCHER" ] && [ -x "$SCRIPT_DIR/../../bin/patch_ko" ] && PATCHER="$SCRIPT_DIR/../../bin/patch_ko"
+[ ! -x "$PATCHER" ] && [ -f "$MODDIR/bin/patch_ko" ] && chmod 0755 "$MODDIR/bin/patch_ko" 2>/dev/null && PATCHER="$MODDIR/bin/patch_ko"
 
 # Auto-heal/sync shortcuts in root and Termux whenever run as root
 if [ "$(id -u)" = "0" ]; then
@@ -166,10 +170,17 @@ case "${1:-}" in
 			fail "could not locate stock $DRIVER.ko under /vendor_dlkm or /vendor"
 		fi
 
-		# Kernel safety check
-		if [ "$FORCE" -eq 0 ]; then
-			if [ "$(uname -r)" != "$EXPECTED_RELEASE" ]; then
-				echo "peridot-wlan-mode: WARNING: Current kernel release ($(uname -r)) does not match $EXPECTED_RELEASE." >&2
+		# Kernel safety check & auto-spoof
+		KREL="$(uname -r)"
+		if [ -x "$PATCHER" ] && [ -r "$MODULE" ]; then
+			if [ "$KREL" != "$EXPECTED_RELEASE" ]; then
+				echo "[*] Synchronizing vermagic & symbol CRCs for kernel $KREL..."
+				"$PATCHER" "$MODULE" "$KREL" >/dev/null 2>&1 || true
+				EXPECTED_RELEASE="$KREL"
+			fi
+		elif [ "$FORCE" -eq 0 ]; then
+			if [ "$KREL" != "$EXPECTED_RELEASE" ]; then
+				echo "peridot-wlan-mode: WARNING: Current kernel release ($KREL) does not match $EXPECTED_RELEASE." >&2
 				echo "peridot-wlan-mode: To test anyway at your own risk, run: pwm monitor --force" >&2
 				exit 1
 			fi
@@ -202,9 +213,17 @@ case "${1:-}" in
 		mount --bind "$MODULE" "$STOCK_MODULE"
 
 		if ! insmod "$STOCK_MODULE"; then
-			umount "$STOCK_MODULE" 2>/dev/null || true
-			restore_stock || true
-			fail "injection module failed to load (check dmesg for vermagic/CRC mismatch). Restored stock driver."
+			if [ -x "$PATCHER" ]; then
+				echo "[*] Module load failed. Attempting vermagic & CRC sync for $(uname -r)..."
+				umount "$STOCK_MODULE" 2>/dev/null || true
+				"$PATCHER" "$MODULE" "$(uname -r)" >/dev/null 2>&1 || true
+				mount --bind "$MODULE" "$STOCK_MODULE"
+			fi
+			if ! insmod "$STOCK_MODULE"; then
+				umount "$STOCK_MODULE" 2>/dev/null || true
+				restore_stock || true
+				fail "injection module failed to load (check dmesg for vermagic/CRC mismatch). Restored stock driver."
+			fi
 		fi
 
 		if [ ! -w "$PARAM" ] || ! printf '4\n' > "$PARAM"; then
@@ -295,18 +314,25 @@ case "${1:-}" in
 		;;
 
 	spoof|patch)
-		require_root
 		echo "[*] Synchronizing vermagic & symbol CRCs for running kernel $(uname -r)..."
-		PY="/data/data/com.termux/files/usr/bin/python3"
-		[ ! -x "$PY" ] && PY="python3"
-		PATCH_SCRIPT="$MODDIR/bin/patch_ko.py"
-		[ ! -f "$PATCH_SCRIPT" ] && PATCH_SCRIPT="$SCRIPT_DIR/../bin/patch_ko.py"
-		[ ! -f "$PATCH_SCRIPT" ] && PATCH_SCRIPT="$(dirname "$0")/../../bin/patch_ko.py"
-		if [ -f "$PATCH_SCRIPT" ] && command -v "$PY" >/dev/null 2>&1; then
-			"$PY" "$PATCH_SCRIPT" "$MODULE" "$(uname -r)"
-			echo "[+] Patcher finished. Run 'pwm status' to verify."
+		if [ -f "$PATCHER" ]; then
+			chmod 0755 "$PATCHER" 2>/dev/null || true
+		fi
+		if [ -x "$PATCHER" ]; then
+			"$PATCHER" "$MODULE" "$(uname -r)"
+			echo "[+] Native patcher finished. Run 'pwm status' to verify."
 		else
-			fail "python3 or patch_ko.py not found. Install python: pkg install python"
+			PY="/data/data/com.termux/files/usr/bin/python3"
+			[ ! -x "$PY" ] && PY="python3"
+			PATCH_SCRIPT="$MODDIR/bin/patch_ko.py"
+			[ ! -f "$PATCH_SCRIPT" ] && PATCH_SCRIPT="$SCRIPT_DIR/../bin/patch_ko.py"
+			[ ! -f "$PATCH_SCRIPT" ] && PATCH_SCRIPT="$(dirname "$0")/../../bin/patch_ko.py"
+			if [ -f "$PATCH_SCRIPT" ] && command -v "$PY" >/dev/null 2>&1; then
+				"$PY" "$PATCH_SCRIPT" "$MODULE" "$(uname -r)"
+				echo "[+] Python patcher finished. Run 'pwm status' to verify."
+			else
+				fail "patch_ko binary not found at $PATCHER"
+			fi
 		fi
 		;;
 

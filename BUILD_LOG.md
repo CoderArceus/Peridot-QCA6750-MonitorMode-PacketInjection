@@ -379,3 +379,32 @@ Peridot (POCO F6 / SM8635) Android 17 kernel packet injection work.
   - Module updated to `v2.0-WebUI` (`versionCode=20`).
   - Flashable ZIP: `Izanami-QCA6750-Monitor-WebUI-v2.0.zip`.
 
+
+### Native Standalone AArch64 Auto-Vermagic Spoofer (Zero-Python) & Boot Auto-Spoof (v2.1-WebUI)
+
+- **Incident Triage (`python3: inaccessible or not found` & `insmod: Invalid argument`)**:
+  - User booted custom kernel `6.1.176-Vibranium-V18+` on POCO F6 (`peridot`).
+  - Clicking `[ SPOOF VERMAGIC + CRCs ]` in WebUI failed with:
+    `sh: <stdin>[9]: python3: inaccessible or not found`
+    because Android devices running KernelSU / APatch / WebUI-X managers often lack Python.
+  - Attempting to enable monitor mode failed with:
+    `insmod: failed to load /vendor_dlkm/lib/modules/qca_cld3_qca6750.ko: Invalid argument`
+    because the Linux kernel module loader rejected the vermagic mismatch (`6.1.176-g7fee93174ed9` vs `6.1.176-Vibranium-V18+`).
+  - WebUI output printed `sh: <stdin>[5]: /system/bin/peridot-wlan-mode: inaccessible or not found` due to fallback to unmounted `/system/bin` path.
+- **Native Standalone AArch64 C Patcher (`scripts/patch_ko.c` -> `bin/patch_ko`)**:
+  - Developed a standalone C ELF64 vermagic and symbol CRC spoofer.
+  - Parses ELF64 headers (`Elf64_Ehdr`, `Elf64_Shdr`), `.modinfo`, and `__versions`.
+  - Discovers stock OEM reference module and backs up to `stock_ref.ko` (filtering out bind-mounted target modules via inode/dev checks).
+  - Syncs `__versions` symbol CRCs into the injection module.
+  - Replaces `vermagic=` in `.modinfo` with running `uname -r`, applies 8-byte alignment padding, shifts subsequent sections by delta, and updates `sh_offset` and `e_shoff`.
+  - Automatically updates `EXPECTED_RELEASE` in `peridot-wlan-mode`, `pwm`, and `kernel.release`.
+  - Statically compiled using `aarch64-linux-gnu-gcc -O2 -static -Wall` and stripped: creates a 603 KiB self-contained native executable with zero external shared library or Python dependencies.
+- **Automatic Spoof on Boot (`post-fs-data.sh` & `service.sh`)**:
+  - Added `post-fs-data.sh`: runs before overlayfs/magic mount to guarantee `qca_cld3_qca6750.ko` is spoofed to the running kernel prior to any services loading.
+  - Added auto-check in `service.sh`: automatically synchronizes vermagic on every boot.
+  - Updated `customize.sh`: runs native `bin/patch_ko` immediately during ZIP flashing in Magisk / KernelSU / APatch manager.
+  - Updated `pwm monitor`: detects kernel release mismatch and auto-runs `patch_ko` before `insmod`, with retry logic on failure.
+  - Updated `webroot/index.html`: replaced Python execution with native `bin/patch_ko` and direct `$MOD/system/bin/peridot-wlan-mode` invocation.
+- **Packaged & Released**:
+  - Module bumped to `v2.1-WebUI` (`versionCode=21`).
+  - Flashable ZIP generated: `Izanami-QCA6750-Monitor-WebUI-v2.1.zip`.

@@ -1,6 +1,6 @@
 id=peridot-qca6750-injection-test
 name=Izanami QCA6750 Monitor Mode & Packet Injection (WebUI)
-version=v2.0-WebUI
-versionCode=20
+version=v2.1-WebUI
+versionCode=21
 author=CoderArceus & Sahayaraj (Raju-yeager)
-description=Loukious-patched QCA6750 Monitor Mode + Packet Injection driver with Hacker WebUI & Auto-Vermagic/CRC Spoofer for any GKI 6.1 Peridot kernel.
+description=Loukious-patched QCA6750 Monitor Mode + Packet Injection driver with Izanami Matrix WebUI & Native Standalone ELF64 Auto-Vermagic/CRC Spoofer (Zero-Python).

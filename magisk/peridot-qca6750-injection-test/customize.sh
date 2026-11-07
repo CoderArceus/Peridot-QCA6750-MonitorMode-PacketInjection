@@ -12,7 +12,9 @@ set_perm "$MODPATH/system/bin/peridot-wlan-mode" 0 0 0755
 [ -f "$MODPATH/system/bin/iw" ] && set_perm "$MODPATH/system/bin/iw" 0 0 0755
 [ -f "$MODPATH/system/bin/iwconfig" ] && set_perm "$MODPATH/system/bin/iwconfig" 0 0 0755
 set_perm "$MODPATH/service.sh" 0 0 0755
+[ -f "$MODPATH/post-fs-data.sh" ] && set_perm "$MODPATH/post-fs-data.sh" 0 0 0755
 [ -f "$MODPATH/action.sh" ] && set_perm "$MODPATH/action.sh" 0 0 0755
+[ -f "$MODPATH/bin/patch_ko" ] && set_perm "$MODPATH/bin/patch_ko" 0 0 0755
 [ -f "$MODPATH/bin/patch_ko.py" ] && set_perm "$MODPATH/bin/patch_ko.py" 0 0 0755
 [ -d "$MODPATH/webroot" ] && set_perm_recursive "$MODPATH/webroot" 0 0 0755 0644
 set_perm "$MODPATH/kernel.release" 0 0 0644
@@ -29,12 +31,18 @@ ln -sf system/bin/peridot-wlan-mode "$MODPATH/wlan-mode" 2>/dev/null || true
 ln -sf system/bin/peridot-wlan-mode "$MODPATH/pwm" 2>/dev/null || true
 ln -sf system/bin/peridot-wlan-mode "$MODPATH/peridot-wlan-mode" 2>/dev/null || true
 
-# 4. Auto-detect running kernel and adapt vermagic/CRCs if python3 is available
-PY="/data/data/com.termux/files/usr/bin/python3"
-[ ! -x "$PY" ] && PY="python3"
-if [ -f "$MODPATH/bin/patch_ko.py" ] && command -v "$PY" >/dev/null 2>&1; then
-  ui_print "- Synchronizing vermagic & symbol CRCs for $(uname -r)..."
-  "$PY" "$MODPATH/bin/patch_ko.py" "$MODPATH/qca_cld3_qca6750.ko" "$(uname -r)" 2>/dev/null || true
+# 4. Auto-detect running kernel and adapt vermagic/CRCs natively
+if [ -f "$MODPATH/bin/patch_ko" ]; then
+  chmod 0755 "$MODPATH/bin/patch_ko" 2>/dev/null || true
+  ui_print "- Synchronizing vermagic & symbol CRCs natively for $(uname -r)..."
+  "$MODPATH/bin/patch_ko" "$MODPATH/qca_cld3_qca6750.ko" "$(uname -r)" 2>/dev/null || true
+elif [ -f "$MODPATH/bin/patch_ko.py" ]; then
+  PY="/data/data/com.termux/files/usr/bin/python3"
+  [ ! -x "$PY" ] && PY="python3"
+  if command -v "$PY" >/dev/null 2>&1; then
+    ui_print "- Synchronizing vermagic & symbol CRCs for $(uname -r)..."
+    "$PY" "$MODPATH/bin/patch_ko.py" "$MODPATH/qca_cld3_qca6750.ko" "$(uname -r)" 2>/dev/null || true
+  fi
 fi
 
 # 5. Link into root PATHs (KernelSU, Magisk, APatch)
@@ -48,7 +56,7 @@ for root_bin in /data/adb/ksu/bin /data/adb/magisk /data/adb/ap/bin /data/adb; d
   fi
 done
 
-# 5. If Termux is installed, copy helper script directly into Termux usr/bin so it works in tsu and non-root
+# 6. If Termux is installed, copy helper script directly into Termux usr/bin so it works in tsu and non-root
 for termux_bin in /data/data/com.termux/files/usr/bin /data/user/0/com.termux/files/usr/bin; do
   if [ -d "$termux_bin" ]; then
     ui_print "- Installing helper into Termux usr/bin: $termux_bin"
@@ -71,8 +79,6 @@ ui_print "   su -c pwm monitor"
 ui_print "   su -c pwm channel <1-165|auto>"
 ui_print "   su -c pwm managed"
 ui_print ""
+ui_print " WebUI: Open WebUI in KernelSU / APatch / WebUI-X!"
 ui_print " Short aliases: pwm, wlan-mode, peridot-wlan-mode"
-ui_print " If Termux is installed later, service.sh"
-ui_print " will automatically link shortcuts on next boot,"
-ui_print " or immediately upon first running 'su -c pwm'."
 ui_print "--------------------------------------------------"

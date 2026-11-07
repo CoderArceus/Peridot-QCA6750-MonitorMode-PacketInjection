@@ -19,7 +19,11 @@ Once the Magisk / KernelSU / APatch module is installed, the helper command is a
 | **Switch Back to Normal Wi-Fi** | `su -c pwm managed` | `su -c peridot-wlan-mode managed` | Restores standard Android Wi-Fi service (auto-resets channel) |
 | **Set Operating Channel** | `su -c pwm channel <1-165>` | `su -c peridot-wlan-mode channel <ch>` | Locks radio & STA helper to specified channel |
 | **Revert Channel to Auto** | `su -c pwm channel auto` | `su -c peridot-wlan-mode channel auto` | Resets channel hopping baseline |
-| **Spoof Vermagic + CRCs** | `su -c pwm spoof` | `su -c peridot-wlan-mode spoof` | Adapts driver vermagic/CRCs to current running kernel |
+| **Spoof Vermagic + CRCs** | `su -c pwm spoof` | `su -c peridot-wlan-mode spoof` | Adapts driver vermagic/CRCs natively (Zero Python required) |
+
+> [!NOTE]
+> **Automatic Adaptation on Boot**:
+> Starting with **v2.1-WebUI**, the module includes a standalone statically-compiled AArch64 binary (`patch_ko`) that runs on every boot via `post-fs-data.sh` and `service.sh`. It automatically adapts the kernel module to match `uname -r` across custom kernels (like Vibranium) and stock ROMs without requiring Python or manual intervention.
 
 ---
 
