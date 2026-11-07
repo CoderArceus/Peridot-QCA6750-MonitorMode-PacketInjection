@@ -360,3 +360,22 @@ Peridot (POCO F6 / SM8635) Android 17 kernel packet injection work.
   - Module bumped to `v1.2` (`versionCode=12`).
   - Flashable ZIP generated: `Peridot-QCA6750-MonitorMode-v1.2.zip`.
 
+### Izanami WebUI Matrix, Action Button & ELF64 Vermagic Spoofer (v2.0-WebUI)
+
+- **KernelSU WebUI Integration (`webroot/index.html`)**:
+  - Implemented a cyberpunk / neon green telemetry and control dashboard for KernelSU, KernelSU-Next, and WebUI-X.
+  - Live cards for running kernel release (`uname -r`), module vermagic, `con_mode` operating mode (0 vs 4), and `wlan0` link status.
+  - Interactive buttons to toggle between Monitor mode (4) and Managed Wi-Fi (0), invoke the vermagic/CRC spoofer, and run status diagnostics directly in the browser UI.
+- **KernelSU / APatch Action Button (`action.sh`)**:
+  - Added module root `action.sh` enabling one-tap toggle between monitor mode and standard Wi-Fi directly from the KernelSU and APatch manager card.
+- **Pure-Python ELF64 Vermagic & Symbol CRC Auto-Patcher (`bin/patch_ko.py`)**:
+  - Created a dependency-free ELF64 parser and bytearray patcher that runs directly on Android (via Termux or system python3).
+  - Syncs `__versions` symbol CRCs from stock `/vendor_dlkm/lib/modules/qca_cld3_qca6750.ko` or backup reference `stock_ref.ko`.
+  - Recalculates `.modinfo` vermagic to match the running kernel release (`uname -r`), preserves 8-byte ELF section alignment, and updates section header offsets (`sh_offset`, `e_shoff`).
+  - Automatically updates `EXPECTED_RELEASE` in `peridot-wlan-mode` and `pwm` CLI tools.
+  - Added `su -c pwm spoof` CLI command to allow users on different or updated 6.1 GKI kernel builds to adapt the injection module on-device without recompilation.
+- **Authorship & Release**:
+  - Attributed authors: `CoderArceus & Sahayaraj (Raju-yeager)`.
+  - Module updated to `v2.0-WebUI` (`versionCode=20`).
+  - Flashable ZIP: `Izanami-QCA6750-Monitor-WebUI-v2.0.zip`.
+

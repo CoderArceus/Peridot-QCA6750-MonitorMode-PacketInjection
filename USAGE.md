@@ -19,10 +19,27 @@ Once the Magisk / KernelSU / APatch module is installed, the helper command is a
 | **Switch Back to Normal Wi-Fi** | `su -c pwm managed` | `su -c peridot-wlan-mode managed` | Restores standard Android Wi-Fi service (auto-resets channel) |
 | **Set Operating Channel** | `su -c pwm channel <1-165>` | `su -c peridot-wlan-mode channel <ch>` | Locks radio & STA helper to specified channel |
 | **Revert Channel to Auto** | `su -c pwm channel auto` | `su -c peridot-wlan-mode channel auto` | Resets channel hopping baseline |
+| **Spoof Vermagic + CRCs** | `su -c pwm spoof` | `su -c peridot-wlan-mode spoof` | Adapts driver vermagic/CRCs to current running kernel |
 
 ---
 
-## 2. Using from Termux
+## 2. Using via KernelSU WebUI & Action Button
+
+### KernelSU / KernelSU-Next WebUI
+1. Open the **KernelSU** or **KernelSU-Next** manager app.
+2. Tap the **WebUI** icon on the `Izanami QCA6750 Monitor Mode & Packet Injection` card.
+3. The neon matrix dashboard will load:
+   - View live running kernel, module vermagic, `con_mode`, and interface status.
+   - Tap `[ ENABLE MONITOR (4) ]` or `[ RESTORE STA WIFI (0) ]` to toggle modes.
+   - Tap `[ SPOOF VERMAGIC + CRCs ]` to automatically adapt the driver if you switched kernels or ROMs.
+   - Tap `[ TEST RADIOTAP / STATUS ]` to inspect real-time link and dmesg logs.
+
+### Action Button (KernelSU / APatch)
+- Tap the **Action** button on the module in the manager list to instantly toggle between Monitor mode and Managed STA Wi-Fi mode without opening a terminal!
+
+---
+
+## 3. Using from Termux
 
 Termux is the recommended environment for running wireless auditing and network diagnostic tools directly on Android.
 

@@ -294,8 +294,24 @@ case "${1:-}" in
 		fi
 		;;
 
+	spoof|patch)
+		require_root
+		echo "[*] Synchronizing vermagic & symbol CRCs for running kernel $(uname -r)..."
+		PY="/data/data/com.termux/files/usr/bin/python3"
+		[ ! -x "$PY" ] && PY="python3"
+		PATCH_SCRIPT="$MODDIR/bin/patch_ko.py"
+		[ ! -f "$PATCH_SCRIPT" ] && PATCH_SCRIPT="$SCRIPT_DIR/../bin/patch_ko.py"
+		[ ! -f "$PATCH_SCRIPT" ] && PATCH_SCRIPT="$(dirname "$0")/../../bin/patch_ko.py"
+		if [ -f "$PATCH_SCRIPT" ] && command -v "$PY" >/dev/null 2>&1; then
+			"$PY" "$PATCH_SCRIPT" "$MODULE" "$(uname -r)"
+			echo "[+] Patcher finished. Run 'pwm status' to verify."
+		else
+			fail "python3 or patch_ko.py not found. Install python: pkg install python"
+		fi
+		;;
+
 	*)
-		echo "Usage: pwm {status|monitor [--force]|managed|channel <1-165|auto>}" >&2
+		echo "Usage: pwm {status|monitor [--force]|managed|channel <1-165|auto>|spoof}" >&2
 		echo "Aliases: pwm, wlan-mode, peridot-wlan-mode" >&2
 		exit 2
 		;;

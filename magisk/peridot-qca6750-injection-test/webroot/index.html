@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>IZANAMI // QCA6750 MONITOR MATRIX</title>
+<style>
+:root {
+  --bg: #050805;
+  --card: #0b130d;
+  --border: #00ff6644;
+  --neon: #00ff66;
+  --cyan: #00e5ff;
+  --warn: #ffb300;
+  --danger: #ff2a55;
+  --text: #d0f5dc;
+}
+* {
+  box-sizing: border-box;
+  font-family: 'Courier New', monospace;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 16px;
+  background-image: radial-gradient(#00ff6611 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.header {
+  border: 1px solid var(--neon);
+  background: #06150a;
+  padding: 14px;
+  border-radius: 8px;
+  box-shadow: 0 0 15px #00ff6622;
+  margin-bottom: 14px;
+}
+.title {
+  font-size: 17px;
+  font-weight: bold;
+  color: var(--neon);
+  letter-spacing: 1px;
+}
+.subtitle {
+  font-size: 11px;
+  color: var(--cyan);
+  margin-top: 4px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.card-title {
+  font-size: 13px;
+  color: var(--cyan);
+  font-weight: bold;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 6px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 12px;
+}
+.stat-box {
+  background: #070c08;
+  padding: 8px;
+  border-radius: 6px;
+  border-left: 3px solid var(--neon);
+}
+.stat-label {
+  color: #78a888;
+  font-size: 10px;
+}
+.stat-val {
+  font-weight: bold;
+  margin-top: 3px;
+  word-break: break-all;
+}
+.btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+button {
+  flex: 1;
+  min-width: 130px;
+  padding: 12px 10px;
+  background: #0b1e11;
+  color: var(--neon);
+  border: 1px solid var(--neon);
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: 0.15s;
+}
+button:active, button.active {
+  background: var(--neon);
+  color: #000;
+  box-shadow: 0 0 12px var(--neon);
+}
+button.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: #1f1605;
+}
+button.warn:active {
+  background: var(--warn);
+  color: #000;
+}
+button.cyan {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: #05191f;
+}
+button.cyan:active {
+  background: var(--cyan);
+  color: #000;
+}
+pre {
+  background: #020402;
+  border: 1px solid #00ff6633;
+  color: #00ff66;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  margin: 0;
+}
+.badge-on {
+  color: #00ff66;
+}
+.badge-off {
+  color: #ffb300;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="title">[ IZANAMI // QCA6750 MATRIX ]</div>
+  <div class="subtitle">POCO F6 (peridot) • Monitor & Raw Packet Injection Controller</div>
+</div>
+<div class="card">
+  <div class="card-title">// LIVE TELEMETRY</div>
+  <div class="grid">
+    <div class="stat-box">
+      <div class="stat-label">RUNNING KERNEL</div>
+      <div class="stat-val" id="krel">Scanning...</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">MODULE VERMAGIC</div>
+      <div class="stat-val" id="vermagic">Scanning...</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">OPERATING MODE (con_mode)</div>
+      <div class="stat-val" id="conmode">Scanning...</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">WLAN0 INTERFACE</div>
+      <div class="stat-val" id="wlanstate">Scanning...</div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-title">// MODE SWITCHER & ELF SPOOFER</div>
+  <div class="btn-row">
+    <button id="btn-mon" onclick="switchMode('monitor')">[ ENABLE MONITOR (4) ]</button>
+    <button id="btn-sta" onclick="switchMode('sta')">[ RESTORE STA WIFI (0) ]</button>
+  </div>
+  <div class="btn-row">
+    <button class="warn" onclick="spoofKo()">[ SPOOF VERMAGIC + CRCs ]</button>
+    <button class="cyan" onclick="checkWorking()">[ TEST RADIOTAP / STATUS ]</button>
+  </div>
+</div>
+<div class="card">
+  <div class="card-title">// KERNEL / PWM CONSOLE OUTPUT</div>
+  <pre id="console">[READY] Waiting for command...</pre>
+</div>
+<script>
+let cbCounter = 0;
+function ksuExec(cmd) {
+  return new Promise((resolve) => {
+    if (typeof ksu === 'undefined') {
+      resolve("Error: Run inside KernelSU-Next / WebUI-X manager.");
+      return;
+    }
+    const cb = `cb_${Date.now()}_${cbCounter++}`;
+    window[cb] = (errno, stdout, stderr) => {
+      delete window[cb];
+      resolve((stdout || "") + (stderr ? "\n" + stderr : ""));
+    };
+    ksu.exec(cmd, "{}", cb);
+  });
+}
+function log(msg) {
+  const el = document.getElementById('console');
+  el.textContent = msg.trim() || "[OK]";
+  el.scrollTop = el.scrollHeight;
+}
+async function refreshStatus() {
+  const cmd = `
+MOD="/data/adb/modules/peridot-qca6750-injection-test"
+KREL=$(uname -r)
+VM=$(strings "$MOD/qca_cld3_qca6750.ko" 2>/dev/null | grep "^vermagic=" | head -n1 | cut -d= -f2 | awk '{print $1}')
+CM=$(cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null || cat /sys/module/wlan/parameters/con_mode 2>/dev/null || echo "N/A")
+WL=$(ip -o link show wlan0 2>/dev/null | awk '{print $2, $3, $9}' || echo "DOWN")
+echo "$KREL|$VM|$CM|$WL"
+  `;
+  const raw = (await ksuExec(cmd)).trim();
+  const parts = raw.split("|");
+  if (parts.length >= 4) {
+    const [krel, vm, cm, wl] = parts;
+    document.getElementById('krel').textContent = krel || "Unknown";
+    document.getElementById('vermagic').innerHTML = (vm === krel) ?
+      `<span class="badge-on">${vm} (MATCH)</span>` :
+      `<span class="badge-off">${vm || 'N/A'} (MISMATCH)</span>`;
+    document.getElementById('conmode').innerHTML = (cm === "4") ?
+      `<span class="badge-on">4 (MONITOR + INJECTION)</span>` :
+      `<span>${cm} (MANAGED STA)</span>`;
+    document.getElementById('wlanstate').textContent = wl || "N/A";
+    document.getElementById('btn-mon').className = (cm === "4") ? "active" : "";
+    document.getElementById('btn-sta').className = (cm === "0") ? "active" : "";
+  }
+}
+async function spoofKo() {
+  log("[*] Patching ELF64 .modinfo vermagic & syncing __versions symbol CRCs...");
+  const out = await ksuExec(`
+MOD="/data/adb/modules/peridot-qca6750-injection-test"
+PY="/data/data/com.termux/files/usr/bin/python3"
+[ ! -x "$PY" ] && PY="python3"
+"$PY" "$MOD/bin/patch_ko.py" "$MOD/qca_cld3_qca6750.ko"
+KREL=$(uname -r)
+for f in "$MOD/system/bin/peridot-wlan-mode" "$MOD/system/bin/pwm"; do
+  [ -f "$f" ] && sed -i "s/EXPECTED_RELEASE=.*/EXPECTED_RELEASE=\"$KREL\"/g; s/6.1.[0-9]*-[a-zA-Z0-9._+-]*/$KREL/g" "$f"
+done
+  `);
+  log(out);
+  await refreshStatus();
+}
+async function switchMode(target) {
+  log(`[*] Switching QCA6750 driver to ${target.toUpperCase()} mode...`);
+  if (target === 'monitor') {
+    const out = await ksuExec("pwm monitor --force 2>&1 || /system/bin/peridot-wlan-mode monitor --force 2>&1");
+    log(out);
+  } else {
+    const out = await ksuExec("pwm managed 2>&1 || pwm sta 2>&1 || (echo 0 > /sys/module/qca_cld3_qca6750/parameters/con_mode && svc wifi enable) 2>&1");
+    log(out);
+  }
+  await refreshStatus();
+}
+async function checkWorking() {
+  log("[*] Running interface, radiotap, and dmesg verification...");
+  const out = await ksuExec(`
+echo "=== [1] PWM STATUS ==="
+pwm status 2>&1
+echo "\n=== [2] IW DEV & LINK TYPE ==="
+iw dev 2>&1
+ip -d link show wlan0 2>&1 | head -n 6
+echo "\n=== [3] RECENT DMESG (QCA6750) ==="
+dmesg | grep -iE "qca_cld3|icnss|vermagic|wma_injection" | tail -n 10
+  `);
+  log(out);
+  await refreshStatus();
+}
+refreshStatus();
+</script>
+</body>
+</html>
