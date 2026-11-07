@@ -23,20 +23,20 @@ body {
   background: var(--bg);
   color: var(--text);
   margin: 0;
-  padding: 16px;
+  padding: 14px;
   background-image: radial-gradient(#00ff6611 1px, transparent 1px);
   background-size: 16px 16px;
 }
 .header {
   border: 1px solid var(--neon);
   background: #06150a;
-  padding: 14px;
+  padding: 12px 14px;
   border-radius: 8px;
   box-shadow: 0 0 15px #00ff6622;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: bold;
   color: var(--neon);
   letter-spacing: 1px;
@@ -44,22 +44,22 @@ body {
 .subtitle {
   font-size: 11px;
   color: var(--cyan);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 14px;
-  margin-bottom: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
 }
 .card-title {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--cyan);
   font-weight: bold;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   border-bottom: 1px dashed var(--border);
-  padding-bottom: 6px;
+  padding-bottom: 5px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -68,7 +68,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  font-size: 12px;
+  font-size: 11px;
 }
 .stat-box {
   background: #070c08;
@@ -78,7 +78,8 @@ body {
 }
 .stat-label {
   color: #78a888;
-  font-size: 10px;
+  font-size: 9px;
+  text-transform: uppercase;
 }
 .stat-val {
   font-weight: bold;
@@ -93,8 +94,8 @@ body {
 }
 button {
   flex: 1;
-  min-width: 120px;
-  padding: 11px 8px;
+  min-width: 110px;
+  padding: 10px 6px;
   background: #0b1e11;
   color: var(--neon);
   border: 1px solid var(--neon);
@@ -137,17 +138,49 @@ button.ghost:active {
   background: #88bba0;
   color: #000;
 }
-.ch-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+.ch-group {
   margin-top: 6px;
 }
+.ch-label {
+  font-size: 10px;
+  color: #78a888;
+  margin-bottom: 4px;
+}
+.ch-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+}
 .ch-btn {
+  min-width: unset;
+  padding: 7px 2px;
+  font-size: 10px;
+  border-radius: 4px;
+  text-align: center;
+}
+.ch-input-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.ch-input {
+  flex: 2;
+  background: #070c08;
+  border: 1px solid var(--border);
+  color: var(--neon);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+}
+.ch-input:focus {
+  border-color: var(--neon);
+}
+.ch-set-btn {
   flex: 1;
-  min-width: 44px;
-  padding: 9px 4px;
-  font-size: 11px;
+  min-width: 60px;
+  padding: 8px;
 }
 pre {
   background: #020402;
@@ -156,11 +189,26 @@ pre {
   padding: 10px;
   border-radius: 6px;
   font-size: 11px;
-  max-height: 250px;
-  overflow-y: auto;
+  height: 240px;
+  max-height: 240px;
+  overflow-y: scroll;
   white-space: pre-wrap;
+  word-break: break-all;
   margin: 0;
   line-height: 1.35;
+}
+pre::-webkit-scrollbar {
+  width: 6px;
+}
+pre::-webkit-scrollbar-track {
+  background: #020402;
+}
+pre::-webkit-scrollbar-thumb {
+  background: #00ff6644;
+  border-radius: 3px;
+}
+pre::-webkit-scrollbar-thumb:hover {
+  background: var(--neon);
 }
 .badge-on {
   color: #00ff66;
@@ -176,8 +224,8 @@ pre {
   background: #00ff66;
   color: #000;
   font-weight: bold;
-  padding: 10px 20px;
-  border-radius: 24px;
+  padding: 10px 18px;
+  border-radius: 20px;
   box-shadow: 0 0 20px #00ff66aa;
   font-size: 12px;
   opacity: 0;
@@ -236,35 +284,61 @@ pre {
 
 <div class="card">
   <div class="card-title">// CHANNEL LOCK (MONITOR MODE)</div>
-  <div class="ch-row">
-    <button class="ch-btn" onclick="setChannel('1')">CH 1</button>
-    <button class="ch-btn" onclick="setChannel('3')">CH 3</button>
-    <button class="ch-btn" onclick="setChannel('6')">CH 6</button>
-    <button class="ch-btn" onclick="setChannel('11')">CH 11</button>
-    <button class="ch-btn" onclick="setChannel('36')">CH 36</button>
-    <button class="ch-btn" onclick="setChannel('149')">CH 149</button>
-    <button class="ch-btn warn" onclick="setChannel('auto')">AUTO</button>
+  <div class="ch-group">
+    <div class="ch-label">2.4 GHz CHANNELS (1 - 13):</div>
+    <div class="ch-grid">
+      <button class="ch-btn" onclick="setChannel('1')">1</button>
+      <button class="ch-btn" onclick="setChannel('2')">2</button>
+      <button class="ch-btn" onclick="setChannel('3')">3</button>
+      <button class="ch-btn" onclick="setChannel('4')">4</button>
+      <button class="ch-btn" onclick="setChannel('5')">5</button>
+      <button class="ch-btn" onclick="setChannel('6')">6</button>
+      <button class="ch-btn" onclick="setChannel('7')">7</button>
+      <button class="ch-btn" onclick="setChannel('8')">8</button>
+      <button class="ch-btn" onclick="setChannel('9')">9</button>
+      <button class="ch-btn" onclick="setChannel('10')">10</button>
+      <button class="ch-btn" onclick="setChannel('11')">11</button>
+      <button class="ch-btn" onclick="setChannel('12')">12</button>
+      <button class="ch-btn" onclick="setChannel('13')">13</button>
+      <button class="ch-btn warn" onclick="setChannel('auto')">AUTO</button>
+    </div>
   </div>
-</div>
-
-<div class="card">
-  <div class="card-title">
-    <span>// SYSTEM LOGS & DIAGNOSTICS</span>
-    <span style="font-size: 10px; color: var(--neon);">ZYGISK-STYLE SHARE</span>
+  <div class="ch-group">
+    <div class="ch-label">5 GHz CHANNELS:</div>
+    <div class="ch-grid">
+      <button class="ch-btn" onclick="setChannel('36')">36</button>
+      <button class="ch-btn" onclick="setChannel('40')">40</button>
+      <button class="ch-btn" onclick="setChannel('44')">44</button>
+      <button class="ch-btn" onclick="setChannel('48')">48</button>
+      <button class="ch-btn" onclick="setChannel('149')">149</button>
+      <button class="ch-btn" onclick="setChannel('153')">153</button>
+      <button class="ch-btn" onclick="setChannel('157')">157</button>
+    </div>
   </div>
-  <div class="btn-row">
-    <button class="cyan" onclick="exportLogs()">[ 📥 SAVE TO /SDCARD ]</button>
-    <button class="warn" onclick="shareLogs()">[ 📤 SHARE LOGS ]</button>
-  </div>
-  <div class="btn-row">
-    <button class="ghost" onclick="copyConsole()">[ 📋 COPY CONSOLE ]</button>
-    <button class="ghost" onclick="refreshStatus()">[ 🔄 REFRESH TELEMETRY ]</button>
+  <div class="ch-input-row">
+    <input type="number" id="custom-ch" class="ch-input" min="1" max="165" placeholder="Custom Channel (e.g. 8, 44, 161)">
+    <button class="ch-set-btn cyan" onclick="setCustomChannel()">LOCK CH</button>
   </div>
 </div>
 
 <div class="card">
   <div class="card-title">// KERNEL / PWM CONSOLE OUTPUT</div>
   <pre id="console">[READY] Waiting for command...</pre>
+</div>
+
+<div class="card">
+  <div class="card-title">
+    <span>// SYSTEM LOGS & DIAGNOSTICS</span>
+    <span style="font-size: 10px; color: var(--neon);">FULL DUMP & SHARE</span>
+  </div>
+  <div class="btn-row">
+    <button class="cyan" onclick="exportLogs()">[ 📥 DUMP TO /SDCARD ]</button>
+    <button class="warn" onclick="shareLogs()">[ 📤 SHARE LOGS ]</button>
+  </div>
+  <div class="btn-row">
+    <button class="ghost" onclick="copyConsole()">[ 📋 COPY CONSOLE ]</button>
+    <button class="ghost" onclick="manualRefresh()">[ 🔄 REFRESH TELEMETRY ]</button>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -297,7 +371,13 @@ function ksuExec(cmd) {
 
 function log(msg) {
   const el = document.getElementById('console');
-  el.textContent = msg.trim() || "[OK]";
+  const time = new Date().toLocaleTimeString();
+  const entry = `[${time}] ${msg.trim()}`;
+  if (el.textContent === '[READY] Waiting for command...' || el.textContent === '[READY] Console cleared. Waiting for command...') {
+    el.textContent = entry;
+  } else {
+    el.textContent += '\n\n' + entry;
+  }
   el.scrollTop = el.scrollHeight;
 }
 
@@ -345,6 +425,13 @@ echo "$KREL|$VM|$CM|$WL"
     document.getElementById('btn-mon').className = (cm === "4") ? "active" : "";
     document.getElementById('btn-sta').className = (cm === "0") ? "active" : "";
   }
+}
+
+async function manualRefresh() {
+  document.getElementById('console').textContent = '[READY] Console cleared. Waiting for command...';
+  lastDiagnosticLog = "";
+  await refreshStatus();
+  showToast("Console cleared & telemetry refreshed");
 }
 
 async function spoofKo() {
@@ -445,7 +532,7 @@ fi
 }
 
 async function setChannel(ch) {
-  log(`[*] Switching monitor channel to ${ch.toUpperCase()}...`);
+  log(`[*] Locking monitor channel to ${ch.toUpperCase()}...`);
   const cmd = `
 MOD=""
 for c in /data/adb/modules/peridot-qca6750-injection-test /data/adb/modules/*qca6750* /data/adb/modules/*Izanami*; do
@@ -454,16 +541,24 @@ done
 [ -z "$MOD" ] && MOD="/data/adb/modules/peridot-qca6750-injection-test"
 chmod -R 0755 "$MOD" 2>/dev/null || true
 
+CM=$(cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null || echo 0)
+if [ "$CM" != "4" ]; then
+  echo "[-] WARNING: Driver is currently in Managed STA mode (con_mode=$CM)."
+  echo "[-] Channel locking is only available when Monitor Mode (con_mode=4) is enabled."
+  echo "[-] Tap [ ENABLE MONITOR (4) ] first, then set channel."
+  exit 0
+fi
+
 if [ -f "$MOD/system/bin/peridot-wlan-mode" ]; then
   sh "$MOD/system/bin/peridot-wlan-mode" channel "${ch}" 2>&1
 elif [ -e "/sys/class/net/wlan0/monitor_mode_channel" ]; then
   if [ "${ch}" = "auto" ] || [ "${ch}" = "0" ]; then
-    printf '1 0\n' > /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null && echo "[+] Channel reset to auto (CH 1)"
+    printf '1 0\n' > /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null && echo "[+] Channel reset to auto (CH 1 hopping baseline)"
   else
-    printf '%s 0\n' "${ch}" > /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null && echo "[+] Channel locked to ${ch}"
+    printf '%s 0\n' "${ch}" > /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null && echo "[+] Channel locked to: ${ch}"
   fi
 else
-  echo "Error: Cannot set channel. Monitor mode must be active first."
+  echo "Error: /sys/class/net/wlan0/monitor_mode_channel not available."
 fi
   `;
   const out = await ksuExec(cmd);
@@ -471,8 +566,17 @@ fi
   showToast(`Channel: ${ch.toUpperCase()}`);
 }
 
+function setCustomChannel() {
+  const val = document.getElementById('custom-ch').value.trim();
+  if (!val || isNaN(val) || parseInt(val) < 1 || parseInt(val) > 165) {
+    showToast("Enter a valid channel (1 - 165)");
+    return;
+  }
+  setChannel(val);
+}
+
 async function checkWorking() {
-  log("[*] Running interface, radiotap, and dmesg verification...");
+  log("[*] Running radiotap interface, packet counters, and kernel verification...");
   const cmd = `
 MOD=""
 for c in /data/adb/modules/peridot-qca6750-injection-test /data/adb/modules/*qca6750* /data/adb/modules/*Izanami*; do
@@ -481,7 +585,18 @@ done
 [ -z "$MOD" ] && MOD="/data/adb/modules/peridot-qca6750-injection-test"
 chmod -R 0755 "$MOD" 2>/dev/null || true
 
-echo "=== [1] PWM STATUS ==="
+CM=$(cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null || echo "0")
+echo "=== [1] DRIVER OPERATING MODE ==="
+if [ "$CM" = "4" ]; then
+  echo "Status: MONITOR MODE (con_mode=4) IS ACTIVE"
+  echo "Radiotap headers: Active on wlan0"
+else
+  echo "Status: MANAGED STA MODE (con_mode=$CM)"
+  echo "[!] NOTICE: Radiotap frames are ONLY received in Monitor Mode."
+  echo "[!] Tap [ ENABLE MONITOR (4) ] to switch to promiscuous packet capture."
+fi
+
+echo "\n=== [2] PWM HELPER STATUS ==="
 if [ -f "$MOD/system/bin/peridot-wlan-mode" ]; then
   sh "$MOD/system/bin/peridot-wlan-mode" status 2>&1
 elif command -v pwm >/dev/null 2>&1; then
@@ -490,12 +605,16 @@ else
   echo "peridot-wlan-mode not found"
 fi
 
-echo "\n=== [2] IW DEV & LINK TYPE ==="
-iw dev 2>&1 || echo "iw not available"
+echo "\n=== [3] WLAN0 INTERFACE & LINK TYPE ==="
 ip -d link show wlan0 2>&1 | head -n 6
+if [ -e "/sys/class/net/wlan0/type" ]; then
+  TYPE=$(cat /sys/class/net/wlan0/type 2>/dev/null)
+  echo "Hardware link type: $TYPE (803 = ARPHRD_IEEE80211_RADIOTAP, 1 = ARPHRD_ETHER)"
+fi
+iw dev wlan0 info 2>&1 || iw dev 2>&1 || echo "iw info not available"
 
-echo "\n=== [3] RECENT DMESG (QCA6750) ==="
-dmesg | grep -iE "qca_cld3|icnss|vermagic|wma_injection" | tail -n 12
+echo "\n=== [4] RECENT DMESG (QCA6750 & INJECTION) ==="
+dmesg | grep -iE "qca_cld3|icnss|vermagic|wma_injection|hdd_monitor|wmi_mgmt" | tail -n 14
   `;
   const out = await ksuExec(cmd);
   log(out);
@@ -503,7 +622,10 @@ dmesg | grep -iE "qca_cld3|icnss|vermagic|wma_injection" | tail -n 12
 }
 
 async function generateDiagnosticLog() {
-  log("[*] Dumping comprehensive system and driver telemetry...");
+  log("[*] Compiling full system, driver, and console telemetry report...");
+  const consoleContent = document.getElementById('console').textContent;
+  
+  // Safely write console content to a temp file via ksuExec
   const cmd = `
 MOD=""
 for c in /data/adb/modules/peridot-qca6750-injection-test /data/adb/modules/*qca6750* /data/adb/modules/*Izanami*; do
@@ -545,24 +667,33 @@ OUT2="/sdcard/Download/peridot_debug.log"
   echo "\n--- [5] INTERFACES & SYSFS ---"
   ip link show wlan0 2>/dev/null
   cat /sys/module/qca_cld3_qca6750/parameters/con_mode 2>/dev/null && echo " (con_mode)" || echo "con_mode unavailable"
+  if [ -e "/sys/class/net/wlan0/monitor_mode_channel" ]; then
+    echo "monitor_mode_channel: $(cat /sys/class/net/wlan0/monitor_mode_channel 2>/dev/null)"
+  fi
 
   echo "\n--- [6] KERNEL DMESG (FILTERED) ---"
   dmesg 2>/dev/null | grep -iE "qca_cld3|icnss|vermagic|wma_injection|disassoc|deauth|bad FCS|wlan|insmod" | tail -n 120
-  echo "============================================="
-} | tee "$OUT" 2>/dev/null > "$OUT2" 2>/dev/null
 
-echo "\n[+] Saved to: $OUT"
-[ -f "$OUT2" ] && echo "[+] Saved to: $OUT2"
+  echo "\n--- [7] RECENT WEBUI CONSOLE OUTPUT ---"
+  cat << 'EOF_CONSOLE'
+${consoleContent.replace(/'/g, "'\\''")}
+EOF_CONSOLE
+  echo "============================================="
+} > "$OUT" 2>&1
+
+cp -f "$OUT" "$OUT2" 2>/dev/null || true
+cat "$OUT"
   `;
   const report = await ksuExec(cmd);
   lastDiagnosticLog = report;
-  log(report);
+  log(`[+] Diagnostic dump complete (${report.split('\n').length} lines). Saved to /sdcard/peridot_debug.log`);
   return report;
 }
 
 async function exportLogs() {
   const report = await generateDiagnosticLog();
-  showToast("Saved to /sdcard/peridot_debug.log!");
+  copyToClipboard(report);
+  showToast("Full log copied to clipboard & saved to /sdcard!");
 }
 
 async function shareLogs() {
@@ -581,13 +712,13 @@ async function shareLogs() {
   }
   // Fallback: Copy to clipboard & toast
   copyToClipboard(report);
-  showToast("Log copied to clipboard & saved to /sdcard!");
+  showToast("Full log copied to clipboard & saved to /sdcard!");
 }
 
 function copyConsole() {
   const text = document.getElementById('console').textContent;
   copyToClipboard(text);
-  showToast("Console copied to clipboard!");
+  showToast("Console output copied to clipboard!");
 }
 
 refreshStatus();
